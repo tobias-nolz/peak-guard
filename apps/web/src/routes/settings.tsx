@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { settingsSchema, type Settings } from '@peak-guard/shared';
@@ -14,24 +19,10 @@ import { useTheme, type ThemePref } from '@/lib/theme';
 
 export function SettingsPage() {
   const { t } = useTranslation();
-  const { data } = useQuery(settingsQuery);
-  if (!data) return null;
-  return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
-      {/* Remount the form when the stored settings change (e.g. edited elsewhere). */}
-      <SettingsForm key={JSON.stringify(data)} initial={data} />
-      <AppearanceCard />
-    </div>
-  );
-}
-
-function SettingsForm({ initial }: { initial: Settings }) {
-  const { t } = useTranslation();
   const qc = useQueryClient();
-  const [draft, setDraft] = useState<Settings>(initial);
-  const [errors, setErrors] = useState<Set<string>>(new Set());
+  const { data } = useQuery(settingsQuery);
   const [saved, setSaved] = useState(false);
+  // Lives here, not in the form: the form remounts when the stored settings change.
   const save = useMutation({
     mutationFn: api.saveSettings,
     onSuccess: (s) => {
@@ -40,6 +31,29 @@ function SettingsForm({ initial }: { initial: Settings }) {
       setTimeout(() => setSaved(false), 2_500);
     },
   });
+  if (!data) return null;
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
+      {/* Remount the form when the stored settings change (saved here or elsewhere). */}
+      <SettingsForm key={JSON.stringify(data)} initial={data} save={save} saved={saved} />
+      <AppearanceCard />
+    </div>
+  );
+}
+
+function SettingsForm({
+  initial,
+  save,
+  saved,
+}: {
+  initial: Settings;
+  save: UseMutationResult<Settings, Error, Settings>;
+  saved: boolean;
+}) {
+  const { t } = useTranslation();
+  const [draft, setDraft] = useState<Settings>(initial);
+  const [errors, setErrors] = useState<Set<string>>(new Set());
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
