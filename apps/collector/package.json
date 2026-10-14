@@ -1,0 +1,26 @@
+{
+  "name": "@peak-guard/collector",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "dev": "tsx watch --conditions=@peak-guard/source src/main.ts",
+    "start": "node dist/main.js",
+    "seed:demo": "tsx --conditions=@peak-guard/source src/seed-demo.ts"
+  },
+  "dependencies": {
+    "@peak-guard/core": "workspace:*",
+    "@peak-guard/db": "workspace:*",
+    "@peak-guard/fronius": "workspace:*",
+    "@peak-guard/shared": "workspace:*",
+    "@peak-guard/sim": "workspace:*",
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.2.0",
+    "postgres": "^3.4.9"
+  }
+}
