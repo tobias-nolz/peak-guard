@@ -114,6 +114,18 @@ export const loadShedRuleSchema = z.object({
   restore: hookActionSchema,
 });
 
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+/** Time-variable grid fee window (local time). */
+export const feeWindowSchema = z.object({
+  id: z.string().min(1).max(64),
+  label: z.string().min(1).max(100),
+  months: z.array(z.number().int().min(1).max(12)).max(12),
+  weekdays: z.array(z.number().int().min(0).max(6)).max(7),
+  from: hhmm,
+  to: hhmm,
+});
+
 /**
  * User-editable runtime settings (stored in the database, edited in the UI).
  * Deployment settings (hosts, ports, secrets) live in the environment instead.
@@ -132,6 +144,7 @@ export const settingsSchema = z.object({
   control: controlSchema,
   notifications: notificationsSchema,
   loadShedding: z.array(loadShedRuleSchema).max(10),
+  gridFeeWindows: z.array(feeWindowSchema).max(20),
 });
 
 export type Tariff = z.infer<typeof tariffSchema>;
@@ -142,6 +155,7 @@ export type NotificationKind = z.infer<typeof notificationKindSchema>;
 export type NotificationSettings = z.infer<typeof notificationsSchema>;
 export type HookAction = z.infer<typeof hookActionSchema>;
 export type LoadShedRuleSettings = z.infer<typeof loadShedRuleSchema>;
+export type FeeWindowSettings = z.infer<typeof feeWindowSchema>;
 export type Settings = z.infer<typeof settingsSchema>;
 export const settingsPatchSchema = settingsSchema.partial();
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;

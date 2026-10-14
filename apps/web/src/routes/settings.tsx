@@ -9,6 +9,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   settingsSchema,
+  type FeeWindowSettings,
   type HookAction,
   type LoadShedRuleSettings,
   type Settings,
@@ -21,6 +22,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, settingsQuery } from '@/lib/api';
 import { SystemCard } from '@/components/system-card';
 import { LANGUAGES } from '@/i18n';
+import { fmtMonth, weekdayNames } from '@/lib/format';
 import { useTheme, type ThemePref } from '@/lib/theme';
 
 export function SettingsPage() {
@@ -326,6 +328,7 @@ function SettingsForm({
 
       <NotificationsCard draft={draft} setDraft={setDraft} />
       <LoadSheddingCard draft={draft} setDraft={setDraft} invalid={invalid} />
+      <FeeWindowsCard draft={draft} setDraft={setDraft} invalid={invalid} />
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={save.isPending} data-testid="save-settings">
@@ -719,5 +722,165 @@ function ActionEditor({
         </div>
       )}
     </fieldset>
+  );
+}
+
+function FeeWindowsCard({
+  draft,
+  setDraft,
+  invalid,
+}: {
+  draft: Settings;
+  setDraft: (s: Settings) => void;
+  invalid: (path: string) => boolean;
+}) {
+  const { t } = useTranslation();
+  const windows = draft.gridFeeWindows;
+  const set = (list: FeeWindowSettings[]) => setDraft({ ...draft, gridFeeWindows: list });
+  const add = (w: Omit<FeeWindowSettings, 'id'>) =>
+    set([...windows, { ...w, id: Math.random().toString(36).slice(2, 10) }]);
+  const toggle = (list: number[], v: number) =>
+    list.includes(v) ? list.filter((x) => x !== v) : [...list, v].sort((a, b) => a - b);
+  const days = weekdayNames();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('fee.title')}</CardTitle>
+        <CardDescription>{t('fee.intro')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {windows.map((w, idx) => {
+          const patch = (p: Partial<FeeWindowSettings>) =>
+            set(windows.map((x, k) => (k === idx ? { ...x, ...p } : x)));
+          return (
+            <div key={w.id} className="space-y-3 rounded-lg border p-4" data-testid="fee-window">
+              <div className="grid items-end gap-3 sm:grid-cols-[1fr_8rem_8rem_auto]">
+                <Field
+                  id={`fee-label-${idx}`}
+                  label={t('fee.label')}
+                  invalid={invalid(`gridFeeWindows.${idx}.label`)}
+                >
+                  <Input
+                    id={`fee-label-${idx}`}
+                    value={w.label}
+                    onChange={(e) => patch({ label: e.target.value })}
+                  />
+                </Field>
+                <Field
+                  id={`fee-from-${idx}`}
+                  label={t('fee.from')}
+                  invalid={invalid(`gridFeeWindows.${idx}.from`)}
+                >
+                  <Input
+                    id={`fee-from-${idx}`}
+                    type="time"
+                    value={w.from}
+                    onChange={(e) => patch({ from: e.target.value })}
+                  />
+                </Field>
+                <Field
+                  id={`fee-to-${idx}`}
+                  label={t('fee.to')}
+                  invalid={invalid(`gridFeeWindows.${idx}.to`)}
+                >
+                  <Input
+                    id={`fee-to-${idx}`}
+                    type="time"
+                    value={w.to}
+                    onChange={(e) => patch({ to: e.target.value })}
+                  />
+                </Field>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => set(windows.filter((_, k) => k !== idx))}
+                >
+                  <Trash2 /> {t('fee.remove')}
+                </Button>
+              </div>
+              <div className="space-y-1">
+                <div className="text-muted-foreground text-xs">{t('fee.months')}</div>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <Button
+                      key={m}
+                      type="button"
+                      size="sm"
+                      variant={w.months.includes(m) ? 'default' : 'outline'}
+                      aria-pressed={w.months.includes(m)}
+                      onClick={() => patch({ months: toggle(w.months, m) })}
+                    >
+                      {fmtMonth(`2027-${String(m).padStart(2, '0')}`, 'short').split(' ')[0]}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-muted-foreground text-xs">{t('fee.weekdays')}</div>
+                <div className="flex flex-wrap gap-1">
+                  {days.map((d, i) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      size="sm"
+                      variant={w.weekdays.includes(i) ? 'default' : 'outline'}
+                      aria-pressed={w.weekdays.includes(i)}
+                      onClick={() => patch({ weekdays: toggle(w.weekdays, i) })}
+                    >
+                      {d}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              add({ label: t('fee.add'), months: [], weekdays: [], from: '10:00', to: '16:00' })
+            }
+          >
+            <Plus /> {t('fee.add')}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              add({
+                label: t('fee.exampleSummer'),
+                months: [4, 5, 6, 7, 8, 9],
+                weekdays: [],
+                from: '10:00',
+                to: '16:00',
+              })
+            }
+          >
+            {t('fee.exampleSummer')}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              add({
+                label: t('fee.exampleWinter'),
+                months: [10, 11, 12, 1, 2, 3],
+                weekdays: [],
+                from: '00:00',
+                to: '06:00',
+              })
+            }
+          >
+            {t('fee.exampleWinter')}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -383,5 +383,19 @@
     "payload": "Payload",
     "retain": "Retain",
     "active": "Load shedding active: {{names}}"
+  },
+  "fee": {
+    "title": "Time-variable grid fees",
+    "intro": "Windows with different grid fees (e.g. low-price windows from 2027). Shown on the Live page and in the history; prepared for later optimisation. The official 2027 windows are not published yet — the examples are placeholders.",
+    "add": "Add window",
+    "exampleSummer": "Example: summer midday",
+    "exampleWinter": "Example: winter night",
+    "label": "Label",
+    "from": "From",
+    "to": "To",
+    "months": "Months (none = all)",
+    "weekdays": "Weekdays (none = all)",
+    "remove": "Remove",
+    "active": "Grid fee window: {{label}}"
   }
 }

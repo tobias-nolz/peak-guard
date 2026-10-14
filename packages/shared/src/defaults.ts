@@ -30,4 +30,6 @@ export const DEFAULT_SETTINGS: Settings = {
     cooldownMinutes: 15,
   },
   loadShedding: [],
+  // Unknown until the 2027 tariffs are published; add windows in Settings.
+  gridFeeWindows: [],
 };

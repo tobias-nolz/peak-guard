@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { INTERVAL_MS } from '@peak-guard/core';
+import { INTERVAL_MS, activeFeeWindow } from '@peak-guard/core';
 import { EChart, chartColors } from '@/components/echart';
 import { ExportLinks } from '@/components/month-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -83,6 +83,20 @@ export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeK
       data: pts.map((p) => [p[0], kw(p[idx] as number | null)]),
       ...extra,
     });
+    // Time-variable grid fee windows as background bands.
+    const feeBands: [{ xAxis: number; name: string }, { xAxis: number }][] = [];
+    const windows = settings.data?.gridFeeWindows ?? [];
+    if (windows.length && to - from <= 40 * 86_400_000) {
+      let open: { start: number; label: string } | null = null;
+      for (let ts = from; ts <= to; ts += INTERVAL_MS) {
+        const w = ts < to ? activeFeeWindow(ts, windows) : null;
+        if (open && w?.label !== open.label) {
+          feeBands.push([{ xAxis: open.start, name: open.label }, { xAxis: ts }]);
+          open = null;
+        }
+        if (w && !open) open = { start: ts, label: w.label };
+      }
+    }
     const multiDay = to - from > 2 * 86_400_000;
     return {
       animation: false,
@@ -141,6 +155,12 @@ export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeK
           lineStyle: { width: 2 },
           data: steps,
           markLine: { symbol: 'none', silent: true, data: marks },
+          markArea: {
+            silent: true,
+            itemStyle: { color: dark ? 'rgba(56,189,248,0.08)' : 'rgba(14,165,233,0.08)' },
+            label: { color: c.text, fontSize: 10 },
+            data: feeBands,
+          },
         },
         line(t('history.load'), c.house, 2),
         line(t('history.pv'), c.pv, 3),

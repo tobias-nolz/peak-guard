@@ -1,4 +1,5 @@
 import {
+  activeFeeWindow,
   billedKw,
   intervalState,
   monthlyCost,
@@ -82,6 +83,7 @@ export function buildSnapshot(i: SnapshotInput): LiveSnapshot {
     ),
     monthCostEur,
     projectedExtraCostEur,
+    feeWindow: activeFeeWindow(i.now, s.gridFeeWindows, i.timeZone)?.label ?? null,
     ...(i.control ? { control: i.control } : {}),
   };
 }

@@ -383,5 +383,19 @@
     "payload": "Payload",
     "retain": "Retain",
     "active": "Lastabwurf aktiv: {{names}}"
+  },
+  "fee": {
+    "title": "Zeitvariable Netzentgelte",
+    "intro": "Zeitfenster mit anderen Netzentgelten (z. B. Niedrigpreisfenster ab 2027). Werden im Live-Bild und im Verlauf angezeigt; vorbereitet für spätere Optimierung. Die offiziellen Fenster 2027 sind noch nicht veröffentlicht – die Beispiele sind Platzhalter.",
+    "add": "Fenster hinzufügen",
+    "exampleSummer": "Beispiel: Sommer-Mittag",
+    "exampleWinter": "Beispiel: Winter-Nacht",
+    "label": "Bezeichnung",
+    "from": "Von",
+    "to": "Bis",
+    "months": "Monate (keine = alle)",
+    "weekdays": "Wochentage (keine = alle)",
+    "remove": "Entfernen",
+    "active": "Netzentgelt-Fenster: {{label}}"
   }
 }

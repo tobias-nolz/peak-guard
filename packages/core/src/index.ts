@@ -7,3 +7,4 @@ export * from './causes.js';
 export * from './control.js';
 export * from './simulate.js';
 export * from './loadshed.js';
+export * from './feewindows.js';
