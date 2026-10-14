@@ -8,7 +8,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "dev": "tsx watch --conditions=@peak-guard/source src/main.ts",
     "start": "node dist/main.js",
-    "seed:demo": "tsx --conditions=@peak-guard/source src/seed-demo.ts"
+    "seed:demo": "tsx --conditions=@peak-guard/source src/seed-demo.ts",
+    "seed:demo:prod": "node dist/seed-demo.js"
   },
   "dependencies": {
     "@peak-guard/core": "workspace:*",

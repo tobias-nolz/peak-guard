@@ -131,6 +131,17 @@ describe('IntervalTracker – counters', () => {
     expect(c.importWh).toBeCloseTo(1_000, 3);
   });
 
+  it('treats an implausible counter jump as a discontinuity, not as a peak', () => {
+    const samples = generate(T0 - 1_000, T0 + INTERVAL_MS + 1_000, 1_000, () => 4_000);
+    // meter replaced at T0+5min with a counter that is 2.8 MWh higher
+    const patched = samples.map((s) =>
+      s.ts >= T0 + 5 * MIN ? { ...s, importWh: s.importWh! + 2_800_000 } : s,
+    );
+    const c = intervalsFromSamples(patched).find((i) => i.start === T0)!;
+    expect(c.source).toBe('integrated');
+    expect(c.avgImportKw).toBeCloseTo(4, 3);
+  });
+
   it('ignores duplicate and out-of-order samples', () => {
     const samples = generate(T0 - 1_000, T0 + INTERVAL_MS + 1_000, 1_000, () => 4_000);
     const noisy = samples.flatMap((s, i) =>

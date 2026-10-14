@@ -53,11 +53,17 @@ export interface IntervalTrackerOptions {
    * linearly over the gap). Longer gaps produce `missing` intervals.
    */
   maxBackfillMs: number;
+  /**
+   * Counter increases implying a higher average power than this are treated as a counter
+   * discontinuity (meter swap/reset, replaced device), not as consumption.
+   */
+  maxPlausibleW: number;
 }
 
 export const DEFAULT_TRACKER_OPTIONS: IntervalTrackerOptions = {
   maxGapMs: 30_000,
   maxBackfillMs: 48 * 3_600_000,
+  maxPlausibleW: 100_000,
 };
 
 interface BoundaryValue {
@@ -138,7 +144,11 @@ export class IntervalTracker {
     const dt = sample.ts - p.ts;
     const continuous = dt <= this.opts.maxGapMs;
     const backfillable = dt <= this.opts.maxBackfillMs;
-    const countersOk = hasCounters(p) && hasCounters(sample) && countersMonotonic(p, sample);
+    const countersOk =
+      hasCounters(p) &&
+      hasCounters(sample) &&
+      countersMonotonic(p, sample) &&
+      countersPlausible(p, sample, this.opts.maxPlausibleW);
 
     let segStart = p.ts;
     while (segStart < sample.ts) {
@@ -296,6 +306,12 @@ export class IntervalTracker {
 
 function hasCounters(s: GridSample): boolean {
   return s.importWh != null && s.exportWh != null;
+}
+
+function countersPlausible(a: GridSample, b: GridSample, maxW: number): boolean {
+  // Allow 1 Wh of counter resolution on top of the power limit.
+  const maxWh = (maxW * (b.ts - a.ts)) / 3_600_000 + 1;
+  return b.importWh! - a.importWh! <= maxWh && b.exportWh! - a.exportWh! <= maxWh;
 }
 
 function countersMonotonic(a: GridSample, b: GridSample): boolean {
