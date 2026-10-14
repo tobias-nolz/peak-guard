@@ -4,7 +4,7 @@ Self-hosted monitoring of 15-minute grid peaks for a Fronius Gen24 + Smart Meter
 
 From 2027, Austrian grid operators (here: Netz NÖ) bill a **capacity charge (Leistungspreis)** on the highest 15-minute average grid import of each month. One bad quarter-hour sets the price for the whole month. Peak Guard measures every clock-aligned quarter-hour the way the billing meter does and shows the current interval's projection live. It also tells you what the month's peak costs.
 
-> **Status:** Phase 1 (monitoring) is complete. Phase 2 (simulation and battery-based peak shaving) is in progress. See [Roadmap](#roadmap).
+> **Status:** Monitoring, simulation and battery-based peak shaving (dry-run and gated active control) are implemented. Active control has only been tested against the simulated inverter so far. See [Roadmap](#roadmap) and [Battery control: safety](#battery-control-safety).
 
 ## Features
 
@@ -16,6 +16,12 @@ From 2027, Austrian grid operators (here: Netz NÖ) bill a **capacity charge (Le
   - Year overview with a month comparison.
   - CSV/JSON exports.
 - **Reconciliation:** import the Netz NÖ smart-meter CSV, compare it with your own measurement and apply a calibration factor. The month view then shows the billed peak.
+- **What-if simulation:** replays your history against a battery with a reserve for peak shaving, sweeps threshold × reserve × capacity and recommends a combination with the expected saving.
+- **Peak-shaving control:**
+  - Keeps part of the battery for peak shaving and discharges it only when the running quarter-hour would exceed the target.
+  - Reads and writes the Gen24 via Modbus/SunSpec model 124.
+  - Modes: Off → Dry-run (default) → Active.
+  - Every decision is logged, and Dry-run shows the estimated saving.
 - **Operations:** login (password or auth proxy), audit log, Prometheus metrics, scheduled backups with a tested restore, gap handling and backfill from meter counters.
 
 ## Quickstart (with the built-in mock inverter)
@@ -99,6 +105,25 @@ Design decisions that deviate from the original brief:
 - **TypeScript 6.0 instead of 7.0.** typescript-eslint (type-aware linting) doesn't support 7.x yet.
 - **Node 24 LTS instead of 26.** Node 26 becomes LTS at the end of October 2026.
 
+## Battery control: safety
+
+- **Off by default.** Nothing is written to the inverter unless `CONTROL_WRITES_ENABLED=true` (kill switch) **and** the mode is Active. The default mode is Dry-run, and tests and CI only ever write to the simulated inverter.
+- **Benign setpoints only.** Peak Guard sets discharge _limits_ (`StorCtl_Mod` bit 1, `OutWRte` ≥ 0) and never forces charging or discharging. Charging is never limited, so PV can always refill the reserve. If a setpoint gets stuck, the worst case is _less_ battery use.
+- **Gated activation.** Active needs:
+  - working Modbus;
+  - a passed **revert self-test**, which shows the inverter returns to its own mode by itself when Peak Guard stops writing — or an explicit acknowledgement that it doesn't;
+  - no latched fault.
+
+  The API enforces this gate, and the collector checks it again before writing.
+
+- **Fail-safe behaviour.**
+  - Every write is read back and verified.
+  - On errors, stale data (watchdog), mode changes, pause, startup and shutdown, the inverter's own mode is restored (`StorCtl_Mod = 0`).
+  - Limits are re-written well before the inverter-side revert timeout, which is the safety net if the whole host fails.
+  - Three consecutive write failures latch a fault until reset.
+- **Rate limited.** A minimum interval between changes plus hysteresis keeps the number of writes low.
+- **Before enabling on real hardware,** follow the checklist in [docs/hardware.md](docs/hardware.md#enabling-battery-control-checklist).
+
 ## Configuration
 
 All deployment settings are in `.env` (see [.env.example](.env.example), which documents every variable). Authentication, reverse proxies (incl. Traefik), backups, monitoring and upgrades are covered in [docs/operations.md](docs/operations.md). Settings that can change at runtime are edited in the UI and stored in the database:
@@ -151,12 +176,12 @@ Internal packages export their TypeScript sources under the custom condition `@p
 
 ## Roadmap
 
-| Milestone | Scope                                                                                               | Status |
-| --------- | --------------------------------------------------------------------------------------------------- | ------ |
-| M0–M3     | Scaffold, mock inverter, collector + interval maths, API, live UI, settings, CI                     | ✅     |
-| M4        | History: ranges, monthly view, top-N with likely cause, heatmap, histogram, duration curve, exports | ✅     |
-| M5        | Netz NÖ CSV import + calibration, auth, audit view, backups, metrics, docs                          | ✅     |
-| M6        | What-if simulation of thresholds / reserves / battery sizes                                         | next   |
-| M7        | Modbus/SunSpec readout, dry-run controller, hardware checklist, revert self-test                    |        |
-| M8        | Active peak shaving (gated, fail-benign setpoints only)                                             |        |
-| M9        | Notifications, MQTT + Home Assistant, load-shedding hooks, time-variable grid fees                  |        |
+| Milestone | Scope                                                                                               | Status                                     |
+| --------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| M0–M3     | Scaffold, mock inverter, collector + interval maths, API, live UI, settings, CI                     | ✅                                         |
+| M4        | History: ranges, monthly view, top-N with likely cause, heatmap, histogram, duration curve, exports | ✅                                         |
+| M5        | Netz NÖ CSV import + calibration, auth, audit view, backups, metrics, docs                          | ✅                                         |
+| M6        | What-if simulation of thresholds / reserves / battery sizes                                         | ✅                                         |
+| M7        | Modbus/SunSpec readout, dry-run controller, hardware checklist, revert self-test                    | ✅ (tested against the simulated inverter) |
+| M8        | Active peak shaving (gated, fail-benign setpoints only)                                             | ✅ (tested against the simulated inverter) |
+| M9        | Notifications, MQTT + Home Assistant, load-shedding hooks, time-variable grid fees                  | next                                       |

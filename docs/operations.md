@@ -103,6 +103,16 @@ The script wraps the restore in `timescaledb_pre_restore()` / `timescaledb_post_
 - **Logs:** structured JSON (pino) on stdout. Set `LOG_LEVEL=debug` for more detail.
 - **Health:** `GET /api/health` is unauthenticated, for uptime checks. Settings → System shows database and collector health, events and the audit log.
 
+## Battery control in operation
+
+- **Control page:** mode (Off / Dry-run / Active), Modbus and battery readout, current decision, whether limits are applied, faults, pause (30 min / 2 h), the revert self-test, parameters, the decision chart and the Dry-run estimate for the month.
+- **Decision log:** every decision is stored in `control_decisions` (on change and at least every 15 s, kept as long as raw samples). You can fetch it with `GET /api/control/decisions?from=…&to=…`.
+- **Events:** writes that fail, restored defaults (with the reason), mode changes, pauses, faults and revert-test results appear under Settings → System.
+- **Emergency stop:** any of these hands control back to the inverter:
+  - Control → _Off_
+  - `CONTROL_WRITES_ENABLED=false` + `docker compose up -d collector`
+  - stopping the collector, which restores defaults on shutdown and is backed by the inverter's revert timer
+
 ## Upgrades
 
 ```sh
