@@ -6,7 +6,8 @@
   "nav": {
     "live": "Live",
     "history": "Verlauf",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "simulation": "Simulation"
   },
   "mode": {
     "monitor": "Nur Überwachung"
@@ -224,5 +225,44 @@
     "audit": "Änderungsprotokoll",
     "changed": "geändert",
     "none": "Keine Einträge."
+  },
+  "sim": {
+    "title": "Was-wäre-wenn-Simulation",
+    "intro": "Spielt deinen aufgezeichneten Verbrauch und PV-Ertrag gegen eine Batterie mit Reserve fürs Peak-Shaving durch – um Schwelle und Reserve zu wählen, bevor die Regelung aktiv wird.",
+    "period": "Zeitraum",
+    "months": "{{n}} Monate",
+    "lastMonth": "Letzter Monat",
+    "battery": "Batterie",
+    "capacity": "Kapazität (kWh)",
+    "maxPower": "Max. Leistung (kW)",
+    "efficiency": "Wirkungsgrad (%)",
+    "minSoc": "Min. SoC (%)",
+    "initialSoc": "Start-SoC (%)",
+    "control": "Peak-Shaving",
+    "threshold": "Schwelle (kW)",
+    "reserve": "Reserve (% SoC)",
+    "adaptive": "Adaptiv (nicht unter die bisherige Monatsspitze kappen)",
+    "margin": "Sicherheitsabstand (kW)",
+    "sweep": "Parameter-Variation",
+    "thresholds": "Schwellen (kW, durch Komma getrennt)",
+    "reserves": "Reserven (%, durch Komma getrennt)",
+    "capacities": "Kapazitäten (kWh, durch Komma getrennt)",
+    "run": "Simulation starten",
+    "running": "Simuliere…",
+    "measured": "Gemessen",
+    "noBattery": "Ohne Batterie",
+    "selfConsumption": "Batterie, Eigenverbrauch (heute)",
+    "shaving": "Mit Peak-Shaving",
+    "avgPeak": "Höchste Spitze",
+    "saving": "Ersparnis ggü. heute",
+    "perMonth": "{{eur}} / Monat",
+    "shaveEnergy": "Batterieenergie fürs Kappen",
+    "overTarget": "Viertelstunden über Ziel",
+    "monthly": "Monatsspitzen",
+    "heatmap": "Durchschnittliche Ersparnis pro Monat nach Schwelle und Reserve",
+    "heatmapHint": "Zelle anklicken, um die Kombination zu übernehmen.",
+    "best": "Empfehlung: Schwelle {{t}} kW, Reserve {{r}} % → spart im Schnitt {{eur}} pro Monat.",
+    "noData": "Zu wenig aufgezeichnete Daten in diesem Zeitraum.",
+    "fidelity": "Simulierte Eigenverbrauchs-Spitze vs. gemessen: {{sim}} vs. {{real}} (wie gut das Batteriemodell zu deiner Anlage passt)."
   }
 }

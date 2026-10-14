@@ -1,7 +1,16 @@
 import { Link, Outlet } from '@tanstack/react-router';
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, BarChart3, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import {
+  Activity,
+  BarChart3,
+  FlaskConical,
+  LogOut,
+  Monitor,
+  Moon,
+  Settings,
+  Sun,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +41,7 @@ export function Layout() {
   const nav = [
     { to: '/', label: t('nav.live'), icon: Activity },
     { to: '/history', label: t('nav.history'), icon: BarChart3 },
+    { to: '/simulation', label: t('nav.simulation'), icon: FlaskConical },
     { to: '/settings', label: t('nav.settings'), icon: Settings },
   ] as const;
 

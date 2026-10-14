@@ -4,6 +4,7 @@ import { HistoryPage, historySearchSchema } from '@/routes/history';
 import { LivePage } from '@/routes/live';
 import { LoginPage } from '@/routes/login';
 import { SettingsPage } from '@/routes/settings';
+import { SimulationPage } from '@/routes/simulation';
 
 const rootRoute = createRootRoute({ component: Outlet });
 
@@ -20,6 +21,7 @@ const routeTree = rootRoute.addChildren([
       component: HistoryPage,
       validateSearch: historySearchSchema,
     }),
+    createRoute({ getParentRoute: () => appRoute, path: '/simulation', component: SimulationPage }),
     createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsPage }),
   ]),
 ]);

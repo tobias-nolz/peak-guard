@@ -6,7 +6,8 @@
   "nav": {
     "live": "Live",
     "history": "History",
-    "settings": "Settings"
+    "settings": "Settings",
+    "simulation": "Simulation"
   },
   "mode": {
     "monitor": "Monitoring only"
@@ -224,5 +225,44 @@
     "audit": "Change log",
     "changed": "changed",
     "none": "No entries."
+  },
+  "sim": {
+    "title": "What-if simulation",
+    "intro": "Replays your recorded consumption and PV against a battery with a reserve for peak shaving, to choose a threshold and reserve before enabling control.",
+    "period": "Period",
+    "months": "{{n}} months",
+    "lastMonth": "Last month",
+    "battery": "Battery",
+    "capacity": "Capacity (kWh)",
+    "maxPower": "Max. power (kW)",
+    "efficiency": "Efficiency (%)",
+    "minSoc": "Min. SoC (%)",
+    "initialSoc": "Start SoC (%)",
+    "control": "Peak shaving",
+    "threshold": "Threshold (kW)",
+    "reserve": "Reserve (% SoC)",
+    "adaptive": "Adaptive (don't shave below the month's peak)",
+    "margin": "Safety margin (kW)",
+    "sweep": "Parameter sweep",
+    "thresholds": "Thresholds (kW, comma-separated)",
+    "reserves": "Reserves (%, comma-separated)",
+    "capacities": "Capacities (kWh, comma-separated)",
+    "run": "Run simulation",
+    "running": "Simulating…",
+    "measured": "Measured",
+    "noBattery": "Without battery",
+    "selfConsumption": "Battery, self-consumption (today)",
+    "shaving": "With peak shaving",
+    "avgPeak": "Highest peak",
+    "saving": "Saving vs. today",
+    "perMonth": "{{eur}} / month",
+    "shaveEnergy": "Battery energy for shaving",
+    "overTarget": "Quarter-hours above target",
+    "monthly": "Monthly peaks",
+    "heatmap": "Average monthly saving by threshold and reserve",
+    "heatmapHint": "Click a cell to use that combination.",
+    "best": "Recommendation: threshold {{t}} kW, reserve {{r}} % → saves {{eur}} per month on average.",
+    "noData": "Not enough recorded data in this period.",
+    "fidelity": "Simulated self-consumption peak vs. measured: {{sim}} vs. {{real}} (how well the battery model matches your system)."
   }
 }

@@ -45,9 +45,24 @@ export function chartColors(dark: boolean) {
   };
 }
 
-export function EChart({ option, className }: { option: EChartsCoreOption; className?: string }) {
+export type EChartEventHandlers = Record<string, (params: unknown) => void>;
+
+export function EChart({
+  option,
+  className,
+  onEvents,
+}: {
+  option: EChartsCoreOption;
+  className?: string;
+  onEvents?: EChartEventHandlers;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
+  // Latest handlers, read at event time so re-renders don't need to rebind.
+  const handlers = useRef<EChartEventHandlers | undefined>(onEvents);
+  useEffect(() => {
+    handlers.current = onEvents;
+  });
   const { dark } = useTheme();
 
   useEffect(() => {
@@ -56,6 +71,9 @@ export function EChart({ option, className }: { option: EChartsCoreOption; class
     chart.current = c;
     const ro = new ResizeObserver(() => c.resize());
     ro.observe(ref.current);
+    for (const name of Object.keys(handlers.current ?? {})) {
+      c.on(name, (params: unknown) => handlers.current?.[name]?.(params));
+    }
     return () => {
       ro.disconnect();
       c.dispose();

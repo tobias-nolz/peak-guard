@@ -179,6 +179,58 @@ export interface AuditDto {
   changed: string[];
 }
 
+export interface SimulationRequestDto {
+  from: number;
+  to: number;
+  battery: {
+    capacityKwh: number;
+    maxPowerKw: number;
+    efficiency: number;
+    minSocPct: number;
+    initialSocPct: number;
+  };
+  control: { thresholdKw: number; reservePct: number; adaptive: boolean; marginKw: number };
+  sweep?: { thresholdsKw: number[]; reservesPct: number[]; capacitiesKwh: number[] };
+}
+
+export interface CostedResultDto {
+  peakKw: number;
+  totalCostEur: number;
+  avgMonthlyCostEur: number;
+  shaveKwh: number;
+  overTarget: number;
+  months: {
+    month: string;
+    peakKw: number;
+    peakStart: number | null;
+    costEur: number;
+    shaveKwh: number;
+    overTarget: number;
+    minSocPct: number;
+  }[];
+}
+
+export interface SweepRowDto {
+  thresholdKw: number;
+  reservePct: number;
+  capacityKwh: number;
+  peakKw: number;
+  avgMonthlyCostEur: number;
+  avgMonthlySavingEur: number;
+  shaveKwh: number;
+  overTarget: number;
+}
+
+export interface SimulationResultDto {
+  points: number;
+  none: CostedResultDto;
+  selfConsumption: CostedResultDto;
+  scenario: CostedResultDto;
+  sweep?: SweepRowDto[];
+  best?: SweepRowDto;
+  actual: { month: string; peakKw: number; costEur: number }[];
+}
+
 export interface HealthDto {
   ok: boolean;
   db: boolean;
@@ -205,6 +257,12 @@ export const api = {
   logout: () => request<null>('/api/auth/logout', { method: 'POST' }),
   events: (limit = 30) => request<EventDto[]>(`/api/events?limit=${limit}`),
   audit: (limit = 30) => request<AuditDto[]>(`/api/audit?limit=${limit}`),
+  simulate: (req: SimulationRequestDto) =>
+    request<SimulationResultDto>('/api/simulation', { method: 'POST', body: JSON.stringify(req) }),
+  simulationDefaults: () =>
+    request<{ thresholdKw: number; capacityKwh: number; maxPowerKw: number; minSocPct: number }>(
+      '/api/simulation/defaults',
+    ),
   importCsv: (file: File, alignment: 'auto' | 'start' | 'end') =>
     file
       .text()
