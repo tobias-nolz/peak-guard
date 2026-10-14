@@ -345,5 +345,20 @@
     "pause120": "2 Std pausieren",
     "resume": "Fortsetzen",
     "pauseHint": "Während der Pause läuft der Wechselrichter in seinem eigenen Eigenverbrauchsmodus."
+  },
+  "notify": {
+    "title": "Benachrichtigungen",
+    "channels": "Konfigurierte Kanäle",
+    "none": "keine – NOTIFY_* in der Umgebung setzen (siehe .env.example)",
+    "events": {
+      "approaching": "Viertelstunde nahe oder über der Grenze",
+      "newPeak": "Neue Monatsspitze",
+      "reserveDepleted": "Batterie-Reserve beim Kappen leer",
+      "connectionLost": "Wechselrichter nicht erreichbar / wieder erreichbar",
+      "controlSafeMode": "Regelung auf Wechselrichtermodus zurückgefallen / Störung"
+    },
+    "cooldown": "Mindestabstand gleichartiger Meldungen (Minuten)",
+    "test": "Test senden",
+    "sent": "Test gesendet"
   }
 }

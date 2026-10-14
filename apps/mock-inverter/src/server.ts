@@ -24,6 +24,7 @@ interface MockState {
 
 export function createMockServer(house: House, clock: SimClock, latencyMs = 0): Server {
   const mock: MockState = { outageUntil: 0 };
+  const webhooks: { receivedAt: number; body: unknown }[] = [];
 
   const json = (res: ServerResponse, status: number, body: unknown) => {
     res.writeHead(status, { 'content-type': 'application/json' });
@@ -85,6 +86,13 @@ export function createMockServer(house: House, clock: SimClock, latencyMs = 0): 
         });
         return json(res, 200, { ok: true });
       }
+      // Webhook catcher for notification tests.
+      if (url.pathname === '/mock/webhook' && req.method === 'POST') {
+        webhooks.push({ receivedAt: Date.now(), body: await readBody(req) });
+        if (webhooks.length > 50) webhooks.shift();
+        return json(res, 200, { ok: true });
+      }
+      if (url.pathname === '/mock/webhooks') return json(res, 200, webhooks);
       if (url.pathname === '/mock/outage' && req.method === 'POST') {
         const body = await readBody(req);
         mock.outageUntil = now + Number(body.seconds ?? 60) * 1000;

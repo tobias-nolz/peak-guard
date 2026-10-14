@@ -12,6 +12,7 @@ import {
 } from '@peak-guard/fronius';
 import type { LiveSnapshot, Settings } from '@peak-guard/shared';
 import type { Logger } from 'pino';
+import type { Notification } from '../notify/notifier.js';
 import { commandFor, significantChange } from './mapping.js';
 
 export interface ControllerDeps {
@@ -30,6 +31,8 @@ export interface ControllerDeps {
   sleep?: (ms: number) => Promise<void>;
   /** No tick for this long (wall clock) while limits are active → restore defaults. */
   staleAfterMs?: number;
+  /** Notifications for safety-relevant events. */
+  alert?: (n: Notification, dedupeKey?: string) => void;
 }
 
 export interface ControlInputs {
@@ -278,6 +281,14 @@ export class Controller {
       },
     );
     const now = this.deps.now();
+    if (decision.mode === 'empty' && this.decision?.mode === 'shave') {
+      this.deps.alert?.({
+        kind: 'reserveDepleted',
+        title: 'Battery reserve depleted',
+        message: `The reserve ran empty while shaving (target ${decision.targetKw.toFixed(1)} kW). The quarter-hour may exceed the target.`,
+        urgent: true,
+      });
+    }
     this.decision = { ...decision, ts: now };
     const next = commandFor(decision, maxW, cfg.revertTimeoutS);
     if (significantChange(this.desired, next, cfg.minChangeW, maxW)) this.desired = next;
@@ -288,8 +299,9 @@ export class Controller {
       const blocked = this.blockedReason(settings);
       if (blocked) {
         this.note = `active blocked: ${blocked}`;
-        if (this.written && this.written.storCtlMod !== 0 && !this.busy)
-          await this.restoreDefaults(blocked);
+        if (this.written && this.written.storCtlMod !== 0 && !this.busy) {
+          await this.restoreDefaults(blocked, /^(Modbus|fault)/.test(blocked));
+        }
       } else {
         wrote = await this.apply(this.desired!, now, cfg.minUpdateIntervalS, cfg.revertTimeoutS);
       }
@@ -385,9 +397,15 @@ export class Controller {
         'control_error',
         `Write failed (${this.failures}/${MAX_FAILURES}): ${msg}`,
       ).catch(() => {});
-      if (cmd.storCtlMod !== 0) await this.restoreDefaults(`write failed: ${msg}`);
+      if (cmd.storCtlMod !== 0) await this.restoreDefaults(`write failed: ${msg}`, true);
       if (this.failures >= MAX_FAILURES) {
         this.fault = `${MAX_FAILURES} consecutive write failures (${msg})`;
+        this.deps.alert?.({
+          kind: 'controlSafeMode',
+          title: 'Peak shaving stopped',
+          message: `Active control latched a fault: ${this.fault}. The inverter runs its own mode until the fault is reset.`,
+          urgent: true,
+        });
         await addEvent(
           this.deps.db,
           'control_fault',
@@ -398,8 +416,22 @@ export class Controller {
     }
   }
 
-  /** Put the inverter back into its own mode (best effort, never throws). */
-  async restoreDefaults(reason: string): Promise<boolean> {
+  /**
+   * Put the inverter back into its own mode (best effort, never throws). `alert` for
+   * error-caused fallbacks (not for user actions like mode changes or pauses).
+   */
+  async restoreDefaults(reason: string, alert = false): Promise<boolean> {
+    if (alert) {
+      this.deps.alert?.(
+        {
+          kind: 'controlSafeMode',
+          title: 'Peak shaving fell back to the inverter mode',
+          message: `Reason: ${reason}`,
+          urgent: true,
+        },
+        reason.slice(0, 40),
+      );
+    }
     const t = this.deps.transport;
     if (!t || !this.deps.writesEnabled) return false;
     try {
@@ -444,6 +476,7 @@ export class Controller {
       this.applying = false;
       await this.restoreDefaults(
         `watchdog: no control tick for ${Math.round((this.wall() - this.lastTickWall) / 1000)} s`,
+        true,
       );
     }
   }

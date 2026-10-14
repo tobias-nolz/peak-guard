@@ -48,6 +48,36 @@ export const controlSchema = z.object({
   acknowledgeNoRevert: z.boolean(),
 });
 
+export const notificationKindSchema = z.enum([
+  'approaching',
+  'newPeak',
+  'reserveDepleted',
+  'connectionLost',
+  'controlSafeMode',
+]);
+
+/** Which events notify (channels are configured in the collector environment). */
+export const notificationsSchema = z.object({
+  events: z.object({
+    /** running quarter-hour projected near/above the limit */
+    approaching: z.boolean(),
+    /** a new month peak was set */
+    newPeak: z.boolean(),
+    /** the reserve ran empty while shaving */
+    reserveDepleted: z.boolean(),
+    /** inverter unreachable / restored */
+    connectionLost: z.boolean(),
+    /** control fell back to the inverter's own mode because of an error, or a fault */
+    controlSafeMode: z.boolean(),
+  }),
+  /** minimum time between notifications of the same kind */
+  cooldownMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(24 * 60),
+});
+
 /**
  * User-editable runtime settings (stored in the database, edited in the UI).
  * Deployment settings (hosts, ports, secrets) live in the environment instead.
@@ -64,12 +94,15 @@ export const settingsSchema = z.object({
   tariffs: z.array(tariffSchema).min(1),
   battery: batterySchema,
   control: controlSchema,
+  notifications: notificationsSchema,
 });
 
 export type Tariff = z.infer<typeof tariffSchema>;
 export type BatterySettings = z.infer<typeof batterySchema>;
 export type ControlSettings = z.infer<typeof controlSchema>;
 export type ControlModeName = z.infer<typeof controlModeSchema>;
+export type NotificationKind = z.infer<typeof notificationKindSchema>;
+export type NotificationSettings = z.infer<typeof notificationsSchema>;
 export type Settings = z.infer<typeof settingsSchema>;
 export const settingsPatchSchema = settingsSchema.partial();
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;

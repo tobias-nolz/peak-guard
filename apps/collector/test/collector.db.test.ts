@@ -106,4 +106,18 @@ describe.skipIf(!adminUrl)('collector ↔ TimescaleDB', () => {
     expect(events.some((e) => e.kind === 'backfill')).toBe(true);
     expect(events.some((e) => e.kind === 'month_peak')).toBe(true);
   }, 60_000);
+
+  it('restarts interval tracking when the clock jumps backwards', async () => {
+    const c = makeCollector();
+    const future = simulate(T0 + 10 * 86_400_000, T0 + 10 * 86_400_000 + 60_000, 2_000);
+    for (const s of future) await c.ingest(s, null);
+    // clock goes back 10 days: samples must not be dropped forever
+    const past = simulate(T0 + 86_400_000, T0 + 86_400_000 + 20 * 60_000, 2_000);
+    const closed = [];
+    for (const s of past) closed.push(...(await c.ingest(s, null)));
+    await c.stop();
+    expect(closed.length).toBeGreaterThan(0);
+    const events = await recentEvents(db, 20);
+    expect(events.some((e) => e.kind === 'clock_jump')).toBe(true);
+  }, 60_000);
 });

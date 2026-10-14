@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { addEvent, createDb, getSettings, migrateWithRetry } from '@peak-guard/db';
+import { addEvent, createDb, getSettings, kvSet, migrateWithRetry } from '@peak-guard/db';
 import { ModbusTcpTransport, SolarApiClient } from '@peak-guard/fronius';
 import { DEFAULT_SETTINGS, type Settings } from '@peak-guard/shared';
 import { pino } from 'pino';
@@ -7,6 +7,7 @@ import { Collector, errorMessage } from './collector.js';
 import { loadEnv, modbusHost } from './config.js';
 import { Controller } from './control/controller.js';
 import { CollectorMetrics } from './metrics.js';
+import { Notifier } from './notify/notifier.js';
 
 export const LIVE_CHANNEL = 'live';
 export const SETTINGS_CHANNEL = 'settings_changed';
@@ -36,6 +37,24 @@ await sql.listen(SETTINGS_CHANNEL, () => {
 
 export const CONTROL_COMMAND_CHANNEL = 'control_command';
 
+const notifier = new Notifier({
+  config: {
+    ntfyUrl: env.NOTIFY_NTFY_URL,
+    ntfyToken: env.NOTIFY_NTFY_TOKEN,
+    telegramBotToken: env.NOTIFY_TELEGRAM_BOT_TOKEN,
+    telegramChatId: env.NOTIFY_TELEGRAM_CHAT_ID,
+    webhookUrl: env.NOTIFY_WEBHOOK_URL,
+    smtpUrl: env.NOTIFY_SMTP_URL,
+    emailFrom: env.NOTIFY_EMAIL_FROM,
+    emailTo: env.NOTIFY_EMAIL_TO,
+  },
+  getSettings: () => settings,
+  log: log.child({ component: 'notify' }),
+  record: (kind, message, data) => addEvent(db, kind, message, data),
+});
+await kvSet(db, 'notify.channels', notifier.channelNames);
+log.info({ channels: notifier.channelNames }, 'notification channels');
+
 const transport = env.MODBUS_ENABLED
   ? new ModbusTcpTransport({
       host: modbusHost(env),
@@ -53,6 +72,7 @@ const controller = new Controller({
   modbusPollMs: env.MODBUS_POLL_MS,
   now: () => collector.snapshot?.ts ?? Date.now(),
   staleAfterMs: Math.max(30_000, 3 * env.STALE_AFTER_MS),
+  alert: (n, key) => void notifier.notify(n, key),
 });
 log.info(
   {
@@ -83,6 +103,13 @@ await sql.listen(CONTROL_COMMAND_CHANNEL, (payload: string) => {
     case 'resume':
       void controller.pause(null);
       break;
+    case 'notifyTest':
+      void notifier.notify({
+        kind: 'test',
+        title: 'Test notification',
+        message: 'Peak Guard notifications are working.',
+      });
+      break;
     case 'clearFault':
       controller.clearFault();
       break;
@@ -93,6 +120,7 @@ const metrics = new CollectorMetrics();
 const collector: Collector = new Collector({
   metrics,
   controller,
+  notifier,
   env,
   db,
   log,

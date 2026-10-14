@@ -345,5 +345,20 @@
     "pause120": "Pause 2 h",
     "resume": "Resume",
     "pauseHint": "While paused, the inverter runs its own self-consumption mode."
+  },
+  "notify": {
+    "title": "Notifications",
+    "channels": "Configured channels",
+    "none": "none — set NOTIFY_* in the environment (see .env.example)",
+    "events": {
+      "approaching": "Quarter-hour approaching or above the limit",
+      "newPeak": "New month peak",
+      "reserveDepleted": "Battery reserve depleted while shaving",
+      "connectionLost": "Inverter unreachable / reachable again",
+      "controlSafeMode": "Control fell back to the inverter mode / fault"
+    },
+    "cooldown": "Minimum minutes between notifications of the same kind",
+    "test": "Send test",
+    "sent": "Test sent"
   }
 }

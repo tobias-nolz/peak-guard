@@ -29,6 +29,7 @@ import type { Logger } from 'pino';
 import type { CollectorEnv } from './config.js';
 import { DuplicateTimestampDetector } from './clock-check.js';
 import type { Controller } from './control/controller.js';
+import type { Notifier } from './notify/notifier.js';
 import type { CollectorMetrics } from './metrics.js';
 import { PowerSmoother, buildSnapshot } from './snapshot.js';
 
@@ -41,6 +42,7 @@ export interface CollectorDeps {
   publish: (snapshot: LiveSnapshot) => Promise<void>;
   metrics?: CollectorMetrics;
   controller?: Controller;
+  notifier?: Notifier;
   now?: () => number;
 }
 
@@ -66,6 +68,7 @@ export class Collector {
   private running = false;
   private inverterClock: number | null = null;
   private lastSnapshot: LiveSnapshot | null = null;
+  private wasDown = false;
   /** Closed intervals not yet persisted (DB unavailable); retried every tick. */
   private pendingIntervals: ClosedInterval[] = [];
   private readonly clockCheck = new DuplicateTimestampDetector();
@@ -211,6 +214,25 @@ export class Collector {
       exportWh: sample.exportWh,
     });
 
+    // A large backwards jump (clock correction, restored backup, restarted simulator)
+    // would make the tracker drop every new sample as "old": start over instead.
+    const last = this.tracker.lastSample;
+    if (last && sample.ts < last.ts - this.deps.env.MAX_GAP_MS) {
+      log.warn(
+        { last: new Date(last.ts).toISOString(), now: new Date(sample.ts).toISOString() },
+        'clock jumped backwards; restarting interval tracking',
+      );
+      await addEvent(
+        this.deps.db,
+        'clock_jump',
+        'Sample time jumped backwards; interval tracking restarted',
+        {
+          last: last.ts,
+          now: sample.ts,
+        },
+      ).catch(() => {});
+      this.tracker = this.newTracker();
+    }
     const closed = this.tracker.push(sample);
     if (closed.length > 0) {
       // Persist samples first so a recompute from raw data is always possible.
@@ -272,6 +294,16 @@ export class Collector {
       const previous = this.monthPeak;
       this.monthPeak = { start: c.start, kw: c.avgImportKw };
       this.deps.log.info({ kw: c.avgImportKw, previous: previous?.kw }, 'new month peak');
+      const cal = this.deps.getSettings().calibrationFactor;
+      void this.deps.notifier?.notify(
+        {
+          kind: 'newPeak',
+          title: 'New month peak',
+          message: `${(c.avgImportKw * cal).toFixed(2)} kW in the quarter-hour starting ${new Date(c.start).toLocaleTimeString('de-AT', { timeZone: this.deps.env.TIME_ZONE, hour: '2-digit', minute: '2-digit' })}${previous ? ` (before: ${(previous.kw * cal).toFixed(2)} kW)` : ''}.`,
+          data: { start: c.start, kw: c.avgImportKw * cal },
+        },
+        String(c.start),
+      );
       await addEvent(this.deps.db, 'month_peak', `New month peak ${c.avgImportKw.toFixed(2)} kW`, {
         start: new Date(c.start).toISOString(),
         kw: c.avgImportKw,
@@ -325,6 +357,30 @@ export class Collector {
     const prev = this.connection;
     this.connection = next;
     this.deps.log.info({ from: prev, to: next }, 'inverter connection state changed');
+    // 'down' only after the initial start-up state (prev 'down' → 'ok' is not a recovery then).
+    if (next === 'down' && prev !== 'down') {
+      void this.deps.notifier?.notify(
+        {
+          kind: 'connectionLost',
+          title: 'Inverter unreachable',
+          message:
+            'No data from the inverter. Monitoring is interrupted; active control fell back to the inverter mode.',
+          urgent: true,
+        },
+        'down',
+      );
+      this.wasDown = true;
+    } else if (next === 'ok' && this.wasDown) {
+      this.wasDown = false;
+      void this.deps.notifier?.notify(
+        {
+          kind: 'connectionLost',
+          title: 'Inverter reachable again',
+          message: 'Data is flowing again.',
+        },
+        'restored',
+      );
+    }
     await addEvent(this.deps.db, 'connection', `Inverter connection ${prev} → ${next}`).catch(
       () => {},
     );
@@ -346,6 +402,22 @@ export class Collector {
       control: this.deps.controller?.snapshotPart(),
     });
     this.lastSnapshot = snap;
+    // Warn once per quarter-hour when the projection nears/exceeds the limit (after 3 min,
+    // when the projection is meaningful).
+    if (snap.state !== 'safe' && snap.interval.elapsedMs >= 180_000) {
+      void this.deps.notifier?.notify(
+        {
+          kind: 'approaching',
+          title:
+            snap.state === 'over'
+              ? 'Quarter-hour above the limit'
+              : 'Quarter-hour approaching the limit',
+          message: `Projected ${snap.interval.projectedKw.toFixed(2)} kW (limit ${snap.effectiveLimitKw.toFixed(1)} kW, month peak ${(snap.monthPeak?.kw ?? 0).toFixed(2)} kW). Consider delaying large loads.`,
+          urgent: snap.state === 'over',
+        },
+        String(snap.interval.start),
+      );
+    }
     await this.deps
       .publish(snap)
       .catch((err: unknown) => this.deps.log.warn({ err: errorMessage(err) }, 'publish failed'));

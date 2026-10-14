@@ -19,4 +19,14 @@ export const DEFAULT_SETTINGS: Settings = {
     revertTimeoutS: 120,
     acknowledgeNoRevert: false,
   },
+  notifications: {
+    events: {
+      approaching: true,
+      newPeak: true,
+      reserveDepleted: true,
+      connectionLost: true,
+      controlSafeMode: true,
+    },
+    cooldownMinutes: 15,
+  },
 };

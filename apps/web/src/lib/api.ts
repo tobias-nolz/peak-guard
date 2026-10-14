@@ -315,6 +315,8 @@ export const api = {
   saveControl: (c: ControlSettings) =>
     request<ControlSettings>('/api/control', { method: 'PUT', body: JSON.stringify(c) }),
   revertTest: () => request<{ requested: boolean }>('/api/control/revert-test', { method: 'POST' }),
+  notifyChannels: () => request<{ channels: string[] }>('/api/notifications/channels'),
+  notifyTest: () => request<{ requested: boolean }>('/api/notifications/test', { method: 'POST' }),
   pauseControl: (minutes: number) =>
     request<{ requested: boolean }>('/api/control/pause', {
       method: 'POST',

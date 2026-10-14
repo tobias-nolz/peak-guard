@@ -143,6 +143,33 @@ export function controlRoutes(app: App, { db, sql, env }: RouteDeps) {
   );
 
   app.get(
+    '/api/notifications/channels',
+    {
+      schema: {
+        tags: ['notifications'],
+        description: 'Notification channels configured in the collector environment.',
+        response: { 200: z.object({ channels: z.array(z.string()) }) },
+      },
+    },
+    async () => ({ channels: (await kvGet<string[]>(db, 'notify.channels')) ?? [] }),
+  );
+
+  app.post(
+    '/api/notifications/test',
+    {
+      schema: {
+        tags: ['notifications'],
+        description: 'Send a test notification to all configured channels.',
+        response: { 202: z.object({ requested: z.boolean() }) },
+      },
+    },
+    async (_req, reply) => {
+      await sql.notify(CONTROL_COMMAND_CHANNEL, JSON.stringify({ type: 'notifyTest' }));
+      return reply.code(202).send({ requested: true });
+    },
+  );
+
+  app.get(
     '/api/control/decisions',
     {
       schema: {

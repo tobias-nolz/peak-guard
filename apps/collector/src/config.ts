@@ -31,6 +31,15 @@ export const collectorEnvSchema = z.object({
    * Active mode or for the revert self-test.
    */
   CONTROL_WRITES_ENABLED: bool.default(false),
+  /** Notification channels (all optional). */
+  NOTIFY_NTFY_URL: z.string().url().optional(),
+  NOTIFY_NTFY_TOKEN: z.string().optional(),
+  NOTIFY_TELEGRAM_BOT_TOKEN: z.string().optional(),
+  NOTIFY_TELEGRAM_CHAT_ID: z.string().optional(),
+  NOTIFY_WEBHOOK_URL: z.string().url().optional(),
+  NOTIFY_SMTP_URL: z.string().optional(),
+  NOTIFY_EMAIL_FROM: z.string().optional(),
+  NOTIFY_EMAIL_TO: z.string().optional(),
 });
 
 export type CollectorEnv = z.infer<typeof collectorEnvSchema>;

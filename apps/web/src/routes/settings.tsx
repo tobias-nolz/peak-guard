@@ -319,6 +319,8 @@ function SettingsForm({
         </CardContent>
       </Card>
 
+      <NotificationsCard draft={draft} setDraft={setDraft} />
+
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={save.isPending} data-testid="save-settings">
           {t('settings.save')}
@@ -403,6 +405,85 @@ function AppearanceCard() {
             ))}
           </TabsList>
         </Tabs>
+      </CardContent>
+    </Card>
+  );
+}
+
+function NotificationsCard({
+  draft,
+  setDraft,
+}: {
+  draft: Settings;
+  setDraft: (s: Settings) => void;
+}) {
+  const { t } = useTranslation();
+  const channels = useQuery({ queryKey: ['notify-channels'], queryFn: api.notifyChannels });
+  const test = useMutation({ mutationFn: api.notifyTest });
+  const n = draft.notifications;
+  const kinds = [
+    'approaching',
+    'newPeak',
+    'reserveDepleted',
+    'connectionLost',
+    'controlSafeMode',
+  ] as const;
+  const list = channels.data?.channels ?? [];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('notify.title')}</CardTitle>
+        <CardDescription>
+          {t('notify.channels')}: {list.length ? list.join(', ') : t('notify.none')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          {kinds.map((k) => (
+            <label key={k} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4"
+                checked={n.events[k]}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    notifications: { ...n, events: { ...n.events, [k]: e.target.checked } },
+                  })
+                }
+              />
+              {t(`notify.events.${k}`)}
+            </label>
+          ))}
+        </div>
+        <div className="grid items-end gap-4 sm:grid-cols-2">
+          <Field id="cooldown" label={t('notify.cooldown')}>
+            <Input
+              id="cooldown"
+              type="number"
+              min={0}
+              step={5}
+              value={n.cooldownMinutes}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  notifications: { ...n, cooldownMinutes: Number(e.target.value) },
+                })
+              }
+            />
+          </Field>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!list.length || test.isPending}
+              onClick={() => test.mutate()}
+            >
+              {t('notify.test')}
+            </Button>
+            {test.isSuccess && <span className="text-safe text-sm">{t('notify.sent')}</span>}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

@@ -154,6 +154,11 @@ export async function getSettings(db: Db): Promise<Settings> {
     ...data,
     battery: { ...DEFAULT_SETTINGS.battery, ...data.battery },
     control: { ...DEFAULT_SETTINGS.control, ...data.control },
+    notifications: {
+      ...DEFAULT_SETTINGS.notifications,
+      ...data.notifications,
+      events: { ...DEFAULT_SETTINGS.notifications.events, ...data.notifications?.events },
+    },
   });
   return parsed.success ? parsed.data : DEFAULT_SETTINGS;
 }
