@@ -92,22 +92,30 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out;
 }
 
-/** Fixed-window limiter for login attempts per key (IP). */
+/**
+ * Fixed-window limiter for failed login attempts per key (IP). Successful logins don't
+ * count and clear the key.
+ */
 export class AttemptLimiter {
-  private readonly hits = new Map<string, { count: number; reset: number }>();
+  private readonly failures = new Map<string, { count: number; reset: number }>();
   constructor(
     private readonly max: number,
     private readonly windowMs: number,
   ) {}
 
-  /** Returns false if the key exceeded its budget. */
-  take(key: string, now = Date.now()): boolean {
-    const h = this.hits.get(key);
-    if (!h || h.reset <= now) {
-      this.hits.set(key, { count: 1, reset: now + this.windowMs });
-      return true;
-    }
-    h.count++;
-    return h.count <= this.max;
+  /** True if the key may try again. */
+  allowed(key: string, now = Date.now()): boolean {
+    const f = this.failures.get(key);
+    return !f || f.reset <= now || f.count < this.max;
+  }
+
+  fail(key: string, now = Date.now()): void {
+    const f = this.failures.get(key);
+    if (!f || f.reset <= now) this.failures.set(key, { count: 1, reset: now + this.windowMs });
+    else f.count++;
+  }
+
+  reset(key: string): void {
+    this.failures.delete(key);
   }
 }

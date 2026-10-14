@@ -7,9 +7,13 @@
     "live": "Live",
     "history": "History",
     "settings": "Settings",
-    "simulation": "Simulation"
+    "simulation": "Simulation",
+    "control": "Control"
   },
   "mode": {
+    "off": "Monitoring only",
+    "dryRun": "Dry-run",
+    "active": "Active control",
     "monitor": "Monitoring only"
   },
   "connection": {
@@ -264,5 +268,73 @@
     "best": "Recommendation: threshold {{t}} kW, reserve {{r}} % → saves {{eur}} per month on average.",
     "noData": "Not enough recorded data in this period.",
     "fidelity": "Simulated self-consumption peak vs. measured: {{sim}} vs. {{real}} (how well the battery model matches your system)."
+  },
+  "control": {
+    "title": "Peak-shaving control",
+    "intro": "Keeps part of the battery for peak shaving and discharges it only when the running quarter-hour would exceed the target. In dry-run, decisions are computed and logged but nothing is written to the inverter.",
+    "mode": "Mode",
+    "modes": {
+      "off": "Off",
+      "dryRun": "Dry-run",
+      "active": "Active"
+    },
+    "blocked": "Active mode is not available: {{reason}}",
+    "ack": "I understand that the inverter may not revert to its own mode by itself if Peak Guard stops (the app-side watchdog is then the only safety net).",
+    "status": "Status",
+    "writes": "Writes to the inverter",
+    "writesOn": "enabled",
+    "writesOff": "disabled (kill switch)",
+    "modbus": "Modbus",
+    "modbusStates": {
+      "disabled": "disabled",
+      "ok": "connected",
+      "error": "error"
+    },
+    "storage": "Battery (SunSpec model 124)",
+    "wChaMax": "Max. power",
+    "soc": "SoC",
+    "storCtlMod": "Limit mode",
+    "outWRte": "Discharge limit",
+    "revert": "Revert timeout",
+    "chaSt": "State",
+    "decision": "Current decision",
+    "decisions": {
+      "release": "Battery free (self-consumption)",
+      "hold": "Holding the reserve",
+      "shave": "Shaving",
+      "empty": "Battery empty"
+    },
+    "target": "Target",
+    "limit": "Discharge limit",
+    "required": "Needed",
+    "noLimit": "none",
+    "revertTest": "Revert self-test",
+    "revertIntro": "Writes a harmless discharge limit of 100 % with a 60 s revert timeout and checks whether the inverter returns to its own mode by itself. Required before Active mode.",
+    "runTest": "Run test",
+    "testStates": {
+      "running": "running…",
+      "passed": "passed",
+      "failed": "failed"
+    },
+    "testNever": "not run yet",
+    "params": "Parameters",
+    "reserve": "Reserve (% SoC)",
+    "adaptive": "Adaptive (don't shave below the month's peak)",
+    "margin": "Safety margin (kW)",
+    "minUpdate": "Min. time between changes (s)",
+    "minChange": "Min. change (W)",
+    "revertS": "Revert timeout (s)",
+    "save": "Save",
+    "saved": "Saved",
+    "chart": "Decisions (last 2 hours)",
+    "projected": "Projected",
+    "dryRun": "Dry-run estimate this month",
+    "actualPeak": "Measured peak",
+    "predictedPeak": "Peak with control",
+    "saving": "Estimated saving",
+    "shaveIntervals": "Quarter-hours shaved",
+    "shaveEnergy": "Battery energy",
+    "checklist": "Before enabling: see the hardware checklist in docs/hardware.md (Solar API, Modbus TCP, \"Inverter control via Modbus\", SunSpec int+SF).",
+    "note": "Note"
   }
 }

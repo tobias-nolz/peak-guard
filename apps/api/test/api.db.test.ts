@@ -331,9 +331,10 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
         >`SELECT actor FROM audit_log ORDER BY id DESC LIMIT 1`;
         expect(audit?.actor).toBe('tobias');
 
-        // brute force is rate limited (5 per minute per IP; 2 used above)
+        // brute force is rate limited: 5 failed attempts per minute per IP (the earlier
+        // failure was cleared by the successful login)
         const codes: number[] = [];
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 7; i++) {
           codes.push(
             (
               await a.inject({
@@ -344,7 +345,14 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
             ).statusCode,
           );
         }
-        expect(codes).toEqual([401, 401, 401, 429, 429]);
+        expect(codes).toEqual([401, 401, 401, 401, 401, 429, 429]);
+        // even the right password is refused while blocked
+        const blocked = await a.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          payload: { username: 'tobias', password: 'correct horse battery' },
+        });
+        expect(blocked.statusCode).toBe(429);
       } finally {
         await a.close();
       }

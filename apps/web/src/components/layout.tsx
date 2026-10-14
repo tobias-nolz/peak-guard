@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
   BarChart3,
+  BatteryCharging,
   FlaskConical,
   LogOut,
   Monitor,
@@ -29,6 +30,7 @@ export function Layout() {
   const connVariant = conn === 'ok' ? 'safe' : conn === 'stale' ? 'warning' : 'over';
   const ThemeIcon = pref === 'dark' ? Moon : pref === 'light' ? Sun : Monitor;
   const me = useQuery(meQuery);
+  const controlMode = live.snapshot?.control?.mode ?? 'off';
   const signedOut = me.data != null && me.data.user == null;
   useEffect(() => {
     // The live stream can't report 401 to the page, so gate on /api/auth/me as well.
@@ -42,6 +44,7 @@ export function Layout() {
     { to: '/', label: t('nav.live'), icon: Activity },
     { to: '/history', label: t('nav.history'), icon: BarChart3 },
     { to: '/simulation', label: t('nav.simulation'), icon: FlaskConical },
+    { to: '/control', label: t('nav.control'), icon: BatteryCharging },
     { to: '/settings', label: t('nav.settings'), icon: Settings },
   ] as const;
 
@@ -68,9 +71,11 @@ export function Layout() {
               ))}
             </nav>
             <div className="ml-auto flex items-center gap-2">
-              <Badge variant="outline" className="hidden sm:inline-flex">
-                {t('mode.monitor')}
-              </Badge>
+              <Link to="/control" className="hidden sm:inline-flex" data-testid="mode-badge">
+                <Badge variant={controlMode === 'active' ? 'warning' : 'outline'}>
+                  {t(`mode.${controlMode}`)}
+                </Badge>
+              </Link>
               <Badge variant={connVariant} data-testid="connection">
                 <span className="size-1.5 rounded-full bg-current" />
                 {t(`connection.${conn}`)}

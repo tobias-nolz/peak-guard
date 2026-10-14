@@ -22,7 +22,7 @@ AUTH_SECRET=<openssl rand -hex 32>
 ```
 
 - **Sessions:** valid for `AUTH_SESSION_HOURS` (default 30 days). Changing `AUTH_SECRET` signs every session out.
-- **Login limits:** login attempts are limited to 5 per minute per client IP.
+- **Login limits:** failed login attempts are limited to 5 per minute per client IP; a successful login resets the counter.
 - **Proxy mode:** the header is trusted blindly. Peak Guard must be reachable **only** through the proxy, so don't publish `WEB_PORT` to the network (`WEB_PORT=127.0.0.1:8080`, or attach the `web` service to the proxy's network only).
 - **Audit log:** every settings change and import is recorded with the user (Settings → System).
 

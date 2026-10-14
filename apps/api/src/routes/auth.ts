@@ -109,15 +109,17 @@ export async function authRoutes(app: App, { env }: RouteDeps) {
     async (req, reply) => {
       if (env.AUTH_MODE !== 'password')
         return reply.code(400).send({ error: `login not used in AUTH_MODE=${env.AUTH_MODE}` });
-      if (!limiter.take(req.ip))
-        return reply.code(429).send({ error: 'too many attempts, try again in a minute' });
+      if (!limiter.allowed(req.ip))
+        return reply.code(429).send({ error: 'too many failed attempts, try again in a minute' });
       const ok =
         req.body.username === env.AUTH_USERNAME &&
         (await verifyPassword(req.body.password, passwordHash!));
       if (!ok) {
+        limiter.fail(req.ip);
         req.log.warn({ ip: req.ip, username: req.body.username }, 'failed login');
         return reply.code(401).send({ error: 'invalid username or password' });
       }
+      limiter.reset(req.ip);
       const maxAge = env.AUTH_SESSION_HOURS * 3600;
       setCookie(
         req,

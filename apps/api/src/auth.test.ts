@@ -41,10 +41,15 @@ describe('helpers', () => {
     });
   });
 
-  it('limits attempts per window', () => {
+  it('limits failed attempts per window; success resets', () => {
     const l = new AttemptLimiter(2, 1_000);
-    expect([l.take('ip', 0), l.take('ip', 1), l.take('ip', 2)]).toEqual([true, true, false]);
-    expect(l.take('ip', 1_001)).toBe(true);
-    expect(l.take('other', 2)).toBe(true);
+    expect(l.allowed('ip', 0)).toBe(true);
+    l.fail('ip', 0);
+    l.fail('ip', 1);
+    expect(l.allowed('ip', 2)).toBe(false);
+    expect(l.allowed('other', 2)).toBe(true);
+    expect(l.allowed('ip', 1_001)).toBe(true); // window over
+    l.reset('ip');
+    expect(l.allowed('ip', 2)).toBe(true);
   });
 });

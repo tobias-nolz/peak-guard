@@ -7,9 +7,13 @@
     "live": "Live",
     "history": "Verlauf",
     "settings": "Einstellungen",
-    "simulation": "Simulation"
+    "simulation": "Simulation",
+    "control": "Regelung"
   },
   "mode": {
+    "off": "Nur Überwachung",
+    "dryRun": "Probelauf",
+    "active": "Regelung aktiv",
     "monitor": "Nur Überwachung"
   },
   "connection": {
@@ -264,5 +268,73 @@
     "best": "Empfehlung: Schwelle {{t}} kW, Reserve {{r}} % → spart im Schnitt {{eur}} pro Monat.",
     "noData": "Zu wenig aufgezeichnete Daten in diesem Zeitraum.",
     "fidelity": "Simulierte Eigenverbrauchs-Spitze vs. gemessen: {{sim}} vs. {{real}} (wie gut das Batteriemodell zu deiner Anlage passt)."
+  },
+  "control": {
+    "title": "Peak-Shaving-Regelung",
+    "intro": "Hält einen Teil der Batterie fürs Peak-Shaving zurück und entlädt ihn nur, wenn die laufende Viertelstunde sonst das Ziel überschreiten würde. Im Probelauf werden Entscheidungen berechnet und protokolliert, aber nichts an den Wechselrichter geschrieben.",
+    "mode": "Modus",
+    "modes": {
+      "off": "Aus",
+      "dryRun": "Probelauf",
+      "active": "Aktiv"
+    },
+    "blocked": "Aktiv-Modus nicht möglich: {{reason}}",
+    "ack": "Mir ist bewusst, dass der Wechselrichter möglicherweise nicht von selbst in seinen eigenen Modus zurückkehrt, falls Peak Guard ausfällt (dann ist nur der Watchdog der App die Absicherung).",
+    "status": "Status",
+    "writes": "Schreiben an den Wechselrichter",
+    "writesOn": "erlaubt",
+    "writesOff": "gesperrt (Not-Aus)",
+    "modbus": "Modbus",
+    "modbusStates": {
+      "disabled": "deaktiviert",
+      "ok": "verbunden",
+      "error": "Fehler"
+    },
+    "storage": "Batterie (SunSpec-Modell 124)",
+    "wChaMax": "Max. Leistung",
+    "soc": "SoC",
+    "storCtlMod": "Limit-Modus",
+    "outWRte": "Entladelimit",
+    "revert": "Rückfall-Timeout",
+    "chaSt": "Zustand",
+    "decision": "Aktuelle Entscheidung",
+    "decisions": {
+      "release": "Batterie frei (Eigenverbrauch)",
+      "hold": "Reserve wird gehalten",
+      "shave": "Kappen aktiv",
+      "empty": "Batterie leer"
+    },
+    "target": "Ziel",
+    "limit": "Entladelimit",
+    "required": "Benötigt",
+    "noLimit": "keins",
+    "revertTest": "Rückfall-Selbsttest",
+    "revertIntro": "Schreibt ein harmloses Entladelimit von 100 % mit 60 s Rückfall-Timeout und prüft, ob der Wechselrichter von selbst in seinen eigenen Modus zurückkehrt. Voraussetzung für den Aktiv-Modus.",
+    "runTest": "Test starten",
+    "testStates": {
+      "running": "läuft…",
+      "passed": "bestanden",
+      "failed": "fehlgeschlagen"
+    },
+    "testNever": "noch nicht ausgeführt",
+    "params": "Parameter",
+    "reserve": "Reserve (% SoC)",
+    "adaptive": "Adaptiv (nicht unter die bisherige Monatsspitze kappen)",
+    "margin": "Sicherheitsabstand (kW)",
+    "minUpdate": "Min. Zeit zwischen Änderungen (s)",
+    "minChange": "Min. Änderung (W)",
+    "revertS": "Rückfall-Timeout (s)",
+    "save": "Speichern",
+    "saved": "Gespeichert",
+    "chart": "Entscheidungen (letzte 2 Stunden)",
+    "projected": "Prognose",
+    "dryRun": "Probelauf-Abschätzung dieses Monats",
+    "actualPeak": "Gemessene Spitze",
+    "predictedPeak": "Spitze mit Regelung",
+    "saving": "Geschätzte Ersparnis",
+    "shaveIntervals": "Gekappte Viertelstunden",
+    "shaveEnergy": "Batterieenergie",
+    "checklist": "Vor dem Aktivieren: siehe Hardware-Checkliste in docs/hardware.md (Solar API, Modbus TCP, „Wechselrichtersteuerung über Modbus“, SunSpec int+SF).",
+    "note": "Hinweis"
   }
 }

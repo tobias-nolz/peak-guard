@@ -45,6 +45,12 @@ services:
       CLOCK_SOURCE: ${CLOCK_SOURCE:-local}
       TIME_ZONE: ${TIME_ZONE:-Europe/Vienna}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      MODBUS_ENABLED: ${MODBUS_ENABLED:-false}
+      MODBUS_HOST: ${MODBUS_HOST:-}
+      MODBUS_PORT: ${MODBUS_PORT:-502}
+      MODBUS_UNIT_ID: ${MODBUS_UNIT_ID:-1}
+      MODBUS_POLL_MS: ${MODBUS_POLL_MS:-5000}
+      CONTROL_WRITES_ENABLED: ${CONTROL_WRITES_ENABLED:-false}
     healthcheck:
       test:
         [

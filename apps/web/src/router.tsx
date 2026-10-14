@@ -1,5 +1,6 @@
 import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { Layout } from '@/components/layout';
+import { ControlPage } from '@/routes/control';
 import { HistoryPage, historySearchSchema } from '@/routes/history';
 import { LivePage } from '@/routes/live';
 import { LoginPage } from '@/routes/login';
@@ -22,6 +23,7 @@ const routeTree = rootRoute.addChildren([
       validateSearch: historySearchSchema,
     }),
     createRoute({ getParentRoute: () => appRoute, path: '/simulation', component: SimulationPage }),
+    createRoute({ getParentRoute: () => appRoute, path: '/control', component: ControlPage }),
     createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsPage }),
   ]),
 ]);

@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { LiveSnapshot, Settings } from '@peak-guard/shared';
+import type { ControlSettings, LiveSnapshot, Settings } from '@peak-guard/shared';
 
 export class ApiError extends Error {
   constructor(
@@ -231,6 +231,57 @@ export interface SimulationResultDto {
   actual: { month: string; peakKw: number; costEur: number }[];
 }
 
+export interface StorageDto {
+  wChaMaxW: number | null;
+  storCtlMod: number;
+  chaStatePct: number | null;
+  chaSt: string | null;
+  outWRtePct: number | null;
+  rvrtTmsS: number | null;
+}
+
+export interface ControlStatusDto {
+  status: {
+    ts: number;
+    writesEnabled: boolean;
+    modbus: {
+      state: 'disabled' | 'ok' | 'error';
+      error: string | null;
+      storage: StorageDto | null;
+    };
+    note: string | null;
+    revertTest: {
+      status: 'running' | 'passed' | 'failed';
+      startedAt: number;
+      finishedAt: number | null;
+      message: string;
+    } | null;
+  } | null;
+  statusAgeMs: number | null;
+  settings: ControlSettings;
+}
+
+export interface DecisionDto {
+  ts: number;
+  controllerMode: string;
+  decision: 'release' | 'hold' | 'shave' | 'empty';
+  targetKw: number;
+  requiredW: number;
+  limitW: number | null;
+  projectedKw: number;
+  applied: boolean;
+}
+
+export interface DryRunSummaryDto {
+  month: string;
+  decisions: number;
+  shaveIntervals: number;
+  shaveKwh: number;
+  actualPeakKw: number;
+  predictedPeakKw: number;
+  savingEur: number;
+}
+
 export interface HealthDto {
   ok: boolean;
   db: boolean;
@@ -257,6 +308,13 @@ export const api = {
   logout: () => request<null>('/api/auth/logout', { method: 'POST' }),
   events: (limit = 30) => request<EventDto[]>(`/api/events?limit=${limit}`),
   audit: (limit = 30) => request<AuditDto[]>(`/api/audit?limit=${limit}`),
+  controlStatus: () => request<ControlStatusDto>('/api/control/status'),
+  saveControl: (c: ControlSettings) =>
+    request<ControlSettings>('/api/control', { method: 'PUT', body: JSON.stringify(c) }),
+  revertTest: () => request<{ requested: boolean }>('/api/control/revert-test', { method: 'POST' }),
+  decisions: (from: number, to: number) =>
+    request<DecisionDto[]>(`/api/control/decisions?from=${from}&to=${to}`),
+  dryRunSummary: (month: string) => request<DryRunSummaryDto>(`/api/control/summary/${month}`),
   simulate: (req: SimulationRequestDto) =>
     request<SimulationResultDto>('/api/simulation', { method: 'POST', body: JSON.stringify(req) }),
   simulationDefaults: () =>
@@ -322,3 +380,8 @@ export const eventsQuery = queryOptions({
   refetchInterval: 60_000,
 });
 export const auditQuery = queryOptions({ queryKey: ['audit'], queryFn: () => api.audit() });
+export const controlStatusQuery = queryOptions({
+  queryKey: ['control-status'],
+  queryFn: api.controlStatus,
+  refetchInterval: 5_000,
+});
