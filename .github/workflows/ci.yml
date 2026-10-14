@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, typecheck, test
+    runs-on: ubuntu-latest
+    services:
+      timescaledb:
+        image: timescale/timescaledb:2.30.2-pg18
+        env:
+          POSTGRES_USER: peakguard
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: peakguard
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U peakguard" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+        env:
+          TEST_DATABASE_URL: postgres://peakguard:ci@localhost:5432/peakguard
+      - run: pnpm build
+
+  e2e:
+    name: End-to-end (compose + mock inverter)
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start stack
+        run: |
+          cp .env.example .env
+          cat >> .env <<'EOF'
+          POSTGRES_PASSWORD=ci
+          MOCK_SPEED=30
+          CLOCK_SOURCE=inverter
+          POLL_INTERVAL_MS=100
+          EOF
+          docker compose --profile dev up -d --build --wait
+      - run: pnpm --filter @peak-guard/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @peak-guard/web e2e
+      - if: failure()
+        run: docker compose --profile dev logs
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+
+  images:
+    name: Build images (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    needs: check
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - { image: collector, dockerfile: docker/node.Dockerfile, app: collector }
+          - { image: api, dockerfile: docker/node.Dockerfile, app: api }
+          - { image: mock-inverter, dockerfile: docker/node.Dockerfile, app: mock-inverter }
+          - { image: web, dockerfile: docker/web.Dockerfile, app: '' }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}-${{ matrix.image }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          build-args: APP=${{ matrix.app }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
