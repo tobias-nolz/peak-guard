@@ -1,4 +1,5 @@
 import { House, DEFAULT_PROFILE } from '@peak-guard/sim';
+import { createModbusServer } from './modbus.js';
 import { acceleratedClock, createMockServer } from './server.js';
 
 const env = (name: string, fallback: string) => process.env[name] ?? fallback;
@@ -28,5 +29,16 @@ createMockServer(house, clock, Number(env('MOCK_LATENCY_MS', '0'))).listen(port,
     `mock inverter listening on :${port} (speed ×${speed}, sim start ${new Date(start).toISOString()})`,
   );
 });
+
+const modbusPort = Number(env('MOCK_MODBUS_PORT', '1502'));
+const modbusControl = env('MOCK_MODBUS_CONTROL', 'true') === 'true';
+createModbusServer(house, clock, { port: modbusPort, controlEnabled: modbusControl }).on(
+  'initialized',
+  () => {
+    console.log(
+      `mock Modbus TCP on :${modbusPort} (control ${modbusControl ? 'enabled' : 'disabled'}, revert ${house.config.revertSupported ? 'supported' : 'NOT supported'})`,
+    );
+  },
+);
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => process.exit(0));

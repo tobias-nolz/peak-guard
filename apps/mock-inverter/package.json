@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@peak-guard/core": "workspace:*",
-    "@peak-guard/sim": "workspace:*"
+    "@peak-guard/sim": "workspace:*",
+    "modbus-serial": "^8.0.25"
   },
   "devDependencies": {
     "@peak-guard/fronius": "workspace:*"

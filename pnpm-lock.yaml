@@ -118,6 +118,9 @@ importers:
       '@peak-guard/sim':
         specifier: workspace:*
         version: link:../../packages/sim
+      modbus-serial:
+        specifier: ^8.0.25
+        version: 8.0.25
     devDependencies:
       '@peak-guard/fronius':
         specifier: workspace:*

@@ -120,6 +120,9 @@ services:
       MOCK_EV_KW: ${MOCK_EV_KW:-11}
       MOCK_PV_KWP: ${MOCK_PV_KWP:-10}
       MOCK_BATTERY_KWH: ${MOCK_BATTERY_KWH:-10.24}
+      MOCK_MODBUS_PORT: 1502
+      MOCK_MODBUS_CONTROL: ${MOCK_MODBUS_CONTROL:-true}
+      MOCK_REVERT_SUPPORTED: ${MOCK_REVERT_SUPPORTED:-true}
     ports:
       - '127.0.0.1:${MOCK_PORT:-8090}:8080'
     healthcheck:
