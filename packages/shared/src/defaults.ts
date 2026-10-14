@@ -7,4 +7,6 @@ export const DEFAULT_SETTINGS: Settings = {
   calibrationFactor: 1,
   projectionSmoothingS: 10,
   tariffs: DEFAULT_TARIFFS,
+  // BYD Battery-Box Premium HVS 10.2 behind a Gen24; adjust in Settings.
+  battery: { capacityKwh: 10.24, maxPowerKw: null, minSocPct: 5 },
 };

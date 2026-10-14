@@ -51,3 +51,17 @@ export async function setupTimescale(
     schedule_interval => INTERVAL '1 minute', if_not_exists => TRUE)`;
   await sql`SELECT add_retention_policy('samples_1m', ${retention.minuteRetention}::interval, if_not_exists => TRUE)`;
 }
+
+/**
+ * Materialize the 1-minute aggregate for a range. Needed after inserting history older
+ * than the refresh policy's window (demo seeding, imports); real-time aggregation only
+ * covers data newer than the materialization watermark.
+ */
+export async function refreshMinuteAggregate(
+  sql: Sql,
+  from: number | null = null,
+  to: number | null = null,
+): Promise<void> {
+  const iso = (ms: number | null) => (ms == null ? null : new Date(ms).toISOString());
+  await sql`CALL refresh_continuous_aggregate('samples_1m', ${iso(from)}::timestamptz, ${iso(to)}::timestamptz)`;
+}

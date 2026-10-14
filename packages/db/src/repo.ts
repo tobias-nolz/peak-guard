@@ -50,7 +50,9 @@ export async function gridSamplesBetween(db: Db, from: number, to: number): Prom
 
 export async function upsertIntervals(db: Db, rows: readonly ClosedInterval[]): Promise<void> {
   if (rows.length === 0) return;
-  const values = rows.map((i) => ({
+  // One statement can't update the same row twice: keep the last version per start.
+  const unique = [...new Map(rows.map((r) => [r.start, r])).values()];
+  const values = unique.map((i) => ({
     start: new Date(i.start),
     importWh: i.importWh,
     exportWh: i.exportWh,

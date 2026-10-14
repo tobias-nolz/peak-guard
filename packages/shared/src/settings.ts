@@ -16,6 +16,16 @@ export const tariffSchema = z.object({
     .min(1),
 });
 
+/** Battery parameters (read from the inverter in phase 2; editable until then). */
+export const batterySchema = z.object({
+  /** Usable capacity (kWh); null = unknown / no battery. */
+  capacityKwh: z.number().min(0).max(1000).nullable(),
+  /** Max discharge power (kW); null = unknown. */
+  maxPowerKw: z.number().min(0).max(1000).nullable(),
+  /** Minimum SoC configured in the inverter (%). */
+  minSocPct: z.number().min(0).max(100),
+});
+
 /**
  * User-editable runtime settings (stored in the database, edited in the UI).
  * Deployment settings (hosts, ports, secrets) live in the environment instead.
@@ -30,9 +40,11 @@ export const settingsSchema = z.object({
   /** Smoothing window for the "current power" used in projections (seconds). */
   projectionSmoothingS: z.number().int().min(0).max(120).default(10),
   tariffs: z.array(tariffSchema).min(1),
+  battery: batterySchema,
 });
 
 export type Tariff = z.infer<typeof tariffSchema>;
+export type BatterySettings = z.infer<typeof batterySchema>;
 export type Settings = z.infer<typeof settingsSchema>;
 export const settingsPatchSchema = settingsSchema.partial();
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;

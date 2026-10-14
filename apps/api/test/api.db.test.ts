@@ -1,0 +1,189 @@
+/**
+ * HTTP-level tests against a real TimescaleDB (TEST_DATABASE_URL, admin URL). A separate
+ * database `peakguard_api_test` is (re)created for the run.
+ */
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import postgres from 'postgres';
+import { INTERVAL_MS, type ClosedInterval } from '@peak-guard/core';
+import {
+  createDb,
+  insertSamples,
+  migrateDb,
+  refreshMinuteAggregate,
+  upsertIntervals,
+  type Db,
+  type Sql,
+} from '@peak-guard/db';
+import { DEFAULT_SETTINGS } from '@peak-guard/shared';
+import { buildApp } from '../src/app.js';
+import { LiveHub } from '../src/live-hub.js';
+
+const adminUrl = process.env.TEST_DATABASE_URL;
+const JAN = Date.parse('2026-12-31T23:00:00Z'); // 2027-01-01 00:00 Vienna
+const PEAK = JAN + 4 * 86_400_000 + 18 * 3_600_000; // 5 Jan 18:00 local
+
+const iv = (
+  start: number,
+  kw: number,
+  quality: ClosedInterval['quality'] = 'exact',
+): ClosedInterval => ({
+  start,
+  importWh: kw * 250,
+  exportWh: 0,
+  avgImportKw: kw,
+  avgExportKw: 0,
+  completeness: 1,
+  quality,
+  source: 'counter',
+  sampleCount: 450,
+  maxImportW: kw * 1200,
+  integratedImportWh: kw * 250,
+});
+
+describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
+  let sql: Sql;
+  let db: Db;
+  let app: Awaited<ReturnType<typeof buildApp>>;
+
+  beforeAll(async () => {
+    const admin = postgres(adminUrl!, { max: 1, onnotice: () => {} });
+    await admin.unsafe('DROP DATABASE IF EXISTS peakguard_api_test WITH (FORCE)');
+    await admin.unsafe('CREATE DATABASE peakguard_api_test');
+    await admin.end();
+    const u = new URL(adminUrl!);
+    u.pathname = '/peakguard_api_test';
+    await migrateDb(u.toString());
+    ({ sql, db } = createDb(u.toString()));
+
+    // One week of quarter-hours at 2 kW, a 12.4 kW EV peak and a missing interval.
+    const rows: ClosedInterval[] = [];
+    for (let t = JAN; t < JAN + 7 * 86_400_000; t += INTERVAL_MS) rows.push(iv(t, 2));
+    rows.push(iv(PEAK, 12.4), iv(PEAK + INTERVAL_MS, 30, 'missing'));
+    await upsertIntervals(db, rows);
+    // Raw samples for the peak: EV at 11 kW with an empty battery.
+    const samples = Array.from({ length: 90 }, (_, i) => ({
+      ts: PEAK + i * 10_000,
+      gridW: 12_400,
+      loadW: 12_400,
+      pvW: 0,
+      batteryW: 0,
+      socPct: 5,
+      importWh: 1e6 + i * 34,
+      exportWh: 5e5,
+    }));
+    await insertSamples(db, samples);
+    await refreshMinuteAggregate(sql);
+
+    app = await buildApp({
+      env: { DATABASE_URL: '', HOST: '', PORT: 0, TIME_ZONE: 'Europe/Vienna', LOG_LEVEL: 'error' },
+      db,
+      sql,
+      hub: new LiveHub(),
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    await app?.close();
+    await sql?.end();
+  });
+
+  it('summarizes a month with the peak and its likely cause', async () => {
+    const res = await app.inject('/api/months/2027-01?top=3');
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{
+      peak: { kw: number; start: number };
+      billedKw: number;
+      costEur: number;
+      top: { kw: number; causes: string[]; flows: { socEnd: number } | null }[];
+      quality: Record<string, number>;
+    }>();
+    expect(body.peak).toEqual({ kw: 12.4, start: PEAK });
+    expect(body.billedKw).toBe(12.4);
+    expect(body.top[0]!.causes).toEqual(['battery_empty', 'sustained_load']);
+    expect(body.top[0]!.flows?.socEnd).toBe(5);
+    expect(body.top[1]!.causes).toEqual([]); // no samples → no analysis
+    expect(body.quality.missing).toBe(1);
+  });
+
+  it('rejects malformed months and ranges', async () => {
+    expect((await app.inject('/api/months/2027-13')).statusCode).toBe(400);
+    const r = await app.inject(`/api/intervals?from=${JAN}&to=${JAN - 1}`);
+    expect(r.statusCode).toBe(400);
+    expect(r.json<{ error: string }>().error).toMatch(/after/);
+  });
+
+  it('returns the year overview', async () => {
+    const body = (await app.inject('/api/years/2027')).json<{
+      months: { month: string; peakKw: number | null }[];
+    }>();
+    expect(body.months).toHaveLength(12);
+    expect(body.months[0]).toMatchObject({ month: '2027-01', peakKw: 12.4 });
+    expect(body.months[1]!.peakKw).toBeNull();
+  });
+
+  it('analyzes the distribution of a range', async () => {
+    const body = (await app.inject(`/api/analysis?from=${JAN}&to=${JAN + 7 * 86_400_000}`)).json<{
+      count: number;
+      maxKw: number;
+      aboveLimit: number;
+      heatmap: unknown[];
+      duration: { pct: number; kw: number }[];
+    }>();
+    expect(body.count).toBe(7 * 96 - 1); // the missing interval is excluded
+    expect(body.maxKw).toBe(12.4);
+    expect(body.aboveLimit).toBe(1);
+    expect(body.heatmap).toHaveLength(168);
+    expect(body.duration[0]).toMatchObject({ kw: 12.4 });
+  });
+
+  it('exports intervals as CSV with local time', async () => {
+    const res = await app.inject(`/api/export/intervals?from=${PEAK}&to=${PEAK + 2 * INTERVAL_MS}`);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toMatch(/text\/csv/);
+    expect(res.headers['content-disposition']).toMatch(
+      /attachment; filename="peak-guard-intervals_/,
+    );
+    const lines = res.body.trim().split('\r\n');
+    expect(lines[0]).toMatch(/^start_utc,start_local,avg_import_kw/);
+    expect(lines[1]).toMatch(
+      /^2027-01-05T17:00:00.000Z,2027-01-05 18:00:00,12.4000,12.4000,3.1000/,
+    );
+    expect(lines).toHaveLength(3);
+  });
+
+  it('serves the power series at 1-minute resolution', async () => {
+    const body = (
+      await app.inject(`/api/series?from=${PEAK}&to=${PEAK + INTERVAL_MS}&resolution=60`)
+    ).json<{
+      resolutionS: number;
+      points: number[][];
+    }>();
+    expect(body.resolutionS).toBe(60);
+    expect(body.points).toHaveLength(15);
+    expect(body.points[0]![1]).toBe(12_400);
+  });
+
+  it('validates and stores settings with an audit trail', async () => {
+    const bad = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      payload: { ...DEFAULT_SETTINGS, thresholdKw: -1 },
+    });
+    expect(bad.statusCode).toBe(400);
+    const next = { ...DEFAULT_SETTINGS, thresholdKw: 11.5 };
+    const ok = await app.inject({
+      method: 'PUT',
+      url: '/api/settings',
+      payload: next,
+      headers: { 'remote-user': 'tester' },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect((await app.inject('/api/settings')).json<{ thresholdKw: number }>().thresholdKw).toBe(
+      11.5,
+    );
+    const [audit] = await sql<
+      { actor: string }[]
+    >`SELECT actor FROM audit_log ORDER BY id DESC LIMIT 1`;
+    expect(audit?.actor).toBe('tester');
+  });
+});
