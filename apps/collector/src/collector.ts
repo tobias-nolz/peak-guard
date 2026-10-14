@@ -27,6 +27,7 @@ import {
 import type { LiveSnapshot, Settings } from '@peak-guard/shared';
 import type { Logger } from 'pino';
 import type { CollectorEnv } from './config.js';
+import { DuplicateTimestampDetector } from './clock-check.js';
 import { PowerSmoother, buildSnapshot } from './snapshot.js';
 
 export interface CollectorDeps {
@@ -63,6 +64,7 @@ export class Collector {
   private lastSnapshot: LiveSnapshot | null = null;
   /** Closed intervals not yet persisted (DB unavailable); retried every tick. */
   private pendingIntervals: ClosedInterval[] = [];
+  private readonly clockCheck = new DuplicateTimestampDetector();
 
   constructor(private readonly deps: CollectorDeps) {
     this.tracker = this.newTracker();
@@ -156,7 +158,10 @@ export class Collector {
         this.deps.env.CLOCK_SOURCE === 'inverter'
           ? Date.parse(meterRes.Head.Timestamp)
           : (this.deps.now ?? Date.now)();
-      if (this.deps.env.CLOCK_SOURCE === 'inverter') this.inverterClock = ts;
+      if (this.deps.env.CLOCK_SOURCE === 'inverter') {
+        this.inverterClock = ts;
+        if (this.clockCheck.record(ts)) await this.warnCoarseClock();
+      }
       await this.ingest(
         { ts, gridPowerW: meter.powerW, importWh: meter.importWh, exportWh: meter.exportWh },
         flow,
@@ -262,6 +267,26 @@ export class Collector {
         previousKw: previous?.kw ?? null,
       });
     }
+  }
+
+  private async warnCoarseClock(): Promise<void> {
+    const { env, log, db } = this.deps;
+    const message =
+      'CLOCK_SOURCE=inverter, but the inverter repeats timestamps (whole-second clock, as on real ' +
+      'hardware): samples are being dropped. Use CLOCK_SOURCE=local for a real inverter; ' +
+      '"inverter" is meant for the accelerated mock.';
+    log.warn(
+      {
+        duplicateRatio: this.clockCheck.duplicateRatio,
+        pollMs: env.POLL_INTERVAL_MS,
+        fronius: env.FRONIUS_URL,
+      },
+      message,
+    );
+    await addEvent(db, 'config_warning', message, {
+      fronius: env.FRONIUS_URL,
+      pollMs: env.POLL_INTERVAL_MS,
+    }).catch(() => {});
   }
 
   private async setConnection(next: Connection): Promise<void> {

@@ -128,12 +128,13 @@ Internal packages export their TypeScript sources under the custom condition `@p
 
 ## Troubleshooting
 
-| Symptom                             | Check                                                                                        |
-| ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| Badge shows "Inverter offline"      | Can the host reach `FRONIUS_URL`? Is the Solar API enabled? `docker compose logs collector`  |
-| Intervals marked `estimated`        | A data gap occurred (see events / collector logs). The energy comes from the meter counters. |
-| No live updates, but the page loads | A reverse proxy in front of Caddy must not buffer `text/event-stream`                        |
-| `db` won't start after an upgrade   | The PostgreSQL major version changed. Restore from a dump (backup tooling arrives in M5).    |
+| Symptom                                   | Check                                                                                        |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Badge shows "Inverter offline"            | Can the host reach `FRONIUS_URL`? Is the Solar API enabled? `docker compose logs collector`  |
+| Intervals marked `estimated`              | A data gap occurred (see events / collector logs). The energy comes from the meter counters. |
+| Log warning "inverter repeats timestamps" | `CLOCK_SOURCE=inverter` is only for the accelerated mock. Use `local` with a real inverter.  |
+| No live updates, but the page loads       | A reverse proxy in front of Caddy must not buffer `text/event-stream`                        |
+| `db` won't start after an upgrade         | The PostgreSQL major version changed. Restore from a dump (backup tooling arrives in M5).    |
 
 ## Roadmap
 
