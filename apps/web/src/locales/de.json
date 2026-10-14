@@ -1,0 +1,78 @@
+{
+  "app": { "title": "Peak Guard", "tagline": "15-Minuten-Spitzen im Blick" },
+  "nav": { "live": "Live", "history": "Verlauf", "settings": "Einstellungen" },
+  "mode": { "monitor": "Nur Überwachung" },
+  "connection": {
+    "ok": "Wechselrichter online",
+    "stale": "Daten verzögert",
+    "down": "Wechselrichter offline",
+    "stream": "Keine Verbindung zum Server"
+  },
+  "theme": { "light": "Hell", "dark": "Dunkel", "system": "System" },
+  "live": {
+    "interval": "Aktuelle Viertelstunde",
+    "projected": "Prognose Mittelwert",
+    "committed": "Bereits fix",
+    "runningAvg": "Laufender Mittelwert",
+    "energy": "Energie bisher",
+    "elapsed": "Vergangen",
+    "remaining": "Verbleibend",
+    "limit": "Grenze",
+    "monthPeak": "Monatsspitze",
+    "state": {
+      "safe": "Im grünen Bereich",
+      "warning": "Nahe an der Grenze",
+      "over": "Über der Grenze"
+    },
+    "completeness": "Datenabdeckung",
+    "powerFlow": "Energiefluss",
+    "pv": "PV",
+    "grid": "Netz",
+    "battery": "Batterie",
+    "house": "Haus",
+    "import": "Bezug",
+    "export": "Einspeisung",
+    "charging": "lädt",
+    "discharging": "entlädt",
+    "costs": "Leistungspreis",
+    "monthCost": "Dieser Monat (Stand jetzt)",
+    "extraCost": "Mehrkosten, falls die Prognose neue Monatsspitze wird",
+    "billed": "Verrechnete Leistung",
+    "today": "Viertelstunden heute",
+    "waiting": "Warte auf Live-Daten…",
+    "minBilledHint": "Unter {{kw}} kW gilt die Mindestleistung – Kappen spart dort nichts."
+  },
+  "history": {
+    "title": "Verlauf",
+    "comingSoon": "Detaillierter Verlauf, Heatmaps und Exporte folgen im nächsten Meilenstein."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "save": "Speichern",
+    "saved": "Einstellungen gespeichert",
+    "reset": "Zurücksetzen",
+    "threshold": "Spitzen-Schwelle (kW)",
+    "thresholdHelp": "Darunter möchtest du bleiben. Die wirksame Grenze liegt nie unter der Mindestleistung.",
+    "warnRatio": "Warnung ab (% der Grenze)",
+    "calibration": "Kalibrierfaktor",
+    "calibrationHelp": "Skaliert die eigenen Messwerte auf den Abrechnungszähler (siehe Abgleich).",
+    "smoothing": "Glättung der Prognose (s)",
+    "smoothingHelp": "Die aktuelle Leistung für die Prognose wird über dieses Fenster gemittelt.",
+    "tariffs": "Leistungspreis-Tarif",
+    "tariffLabel": "Bezeichnung",
+    "validFrom": "Gültig ab",
+    "minBilled": "Mindest-Verrechnungsleistung (kW)",
+    "tierUpTo": "Bis kW (leer = unbegrenzt)",
+    "tierPrice": "€ / kW / Jahr",
+    "addTier": "Stufe hinzufügen",
+    "appearance": "Darstellung",
+    "language": "Sprache",
+    "invalid": "Bitte die markierten Felder prüfen."
+  },
+  "quality": {
+    "exact": "exakt",
+    "estimated": "geschätzt",
+    "partial": "teilweise",
+    "missing": "fehlt"
+  }
+}
