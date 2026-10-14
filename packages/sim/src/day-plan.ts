@@ -25,6 +25,8 @@ export interface HouseholdProfile {
   evProbability: number;
   /** Heat pump electrical power (W); 0 disables it. */
   heatPumpW: number;
+  /** Household appliance events (cooking, washing, …); false keeps only EV charging. Default true. */
+  appliances?: boolean;
   timeZone: string;
 }
 
@@ -71,7 +73,8 @@ export function dayPlan(ts: number, profile: HouseholdProfile): DayPlan {
 
   return {
     dayStart,
-    events,
+    // Filtered at the end so the random sequence (and other days' plans) stays identical.
+    events: profile.appliances === false ? events.filter((e) => e.name === 'EV charging') : events,
     clearness: Math.min(1, Math.max(0.1, 0.25 + r() * 0.9)),
     heatPumpDuty: profile.heatPumpW > 0 ? (HEAT_PUMP_DUTY_BY_MONTH[month - 1] ?? 0) : 0,
   };

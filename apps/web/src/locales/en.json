@@ -335,6 +335,15 @@
     "shaveIntervals": "Quarter-hours shaved",
     "shaveEnergy": "Battery energy",
     "checklist": "Before enabling: see the hardware checklist in docs/hardware.md (Solar API, Modbus TCP, \"Inverter control via Modbus\", SunSpec int+SF).",
-    "note": "Note"
+    "note": "Note",
+    "applying": "Limits applied",
+    "notApplying": "not applied",
+    "fault": "Fault",
+    "clearFault": "Reset fault",
+    "pausedUntil": "Paused until",
+    "pause30": "Pause 30 min",
+    "pause120": "Pause 2 h",
+    "resume": "Resume",
+    "pauseHint": "While paused, the inverter runs its own self-consumption mode."
   }
 }

@@ -29,6 +29,8 @@ test.describe.serial('control', () => {
     page,
     request,
   }) => {
+    // revert test + several mode changes with ~5 s status updates
+    test.setTimeout(120_000);
     const { settings } = (await (await request.get('/api/control/status')).json()) as {
       settings: Record<string, unknown>;
     };
@@ -45,5 +47,19 @@ test.describe.serial('control', () => {
     }
     await page.getByTestId('mode-active').click();
     await expect(page.getByTestId('mode-badge')).toHaveText('Active control', { timeout: 15_000 });
+    // the collector writes (and verifies) the mock's model 124
+    await expect(page.getByTestId('control-applying')).toHaveText('Limits applied', {
+      timeout: 20_000,
+    });
+
+    // pause hands control back to the inverter, resume takes it again
+    await page.getByTestId('pause-30').click();
+    await expect(page.getByTestId('control-applying')).toHaveText('not applied', {
+      timeout: 20_000,
+    });
+    await page.getByTestId('resume').click();
+    await expect(page.getByTestId('control-applying')).toHaveText('Limits applied', {
+      timeout: 20_000,
+    });
   });
 });

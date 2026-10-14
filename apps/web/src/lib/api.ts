@@ -250,6 +250,9 @@ export interface ControlStatusDto {
       storage: StorageDto | null;
     };
     note: string | null;
+    applying?: boolean;
+    fault?: string | null;
+    pausedUntil?: number | null;
     revertTest: {
       status: 'running' | 'passed' | 'failed';
       startedAt: number;
@@ -312,6 +315,12 @@ export const api = {
   saveControl: (c: ControlSettings) =>
     request<ControlSettings>('/api/control', { method: 'PUT', body: JSON.stringify(c) }),
   revertTest: () => request<{ requested: boolean }>('/api/control/revert-test', { method: 'POST' }),
+  pauseControl: (minutes: number) =>
+    request<{ requested: boolean }>('/api/control/pause', {
+      method: 'POST',
+      body: JSON.stringify({ minutes }),
+    }),
+  clearFault: () => request<{ requested: boolean }>('/api/control/clear-fault', { method: 'POST' }),
   decisions: (from: number, to: number) =>
     request<DecisionDto[]>(`/api/control/decisions?from=${from}&to=${to}`),
   dryRunSummary: (month: string) => request<DryRunSummaryDto>(`/api/control/summary/${month}`),

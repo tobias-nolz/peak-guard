@@ -68,6 +68,7 @@ function ModeCard({ data }: { data: ControlStatusDto }) {
             ))}
           </TabsList>
         </Tabs>
+        {data.settings.mode === 'active' && <PauseControls data={data} />}
         {!revertPassed && (
           <label className="flex items-start gap-2 text-sm">
             <input
@@ -141,6 +142,15 @@ function StatusCard({ data }: { data: ControlStatusDto }) {
             {row(t('control.chaSt'), st.chaSt ?? '–')}
           </>
         )}
+        {data.settings.mode === 'active' &&
+          row(
+            t('control.applying'),
+            <Badge variant={s?.applying ? 'safe' : 'secondary'} data-testid="control-applying">
+              {s?.applying ? t('control.applying') : t('control.notApplying')}
+            </Badge>,
+          )}
+        {s?.fault && row(t('control.fault'), <span className="text-destructive">{s.fault}</span>)}
+        {s?.pausedUntil && row(t('control.pausedUntil'), fmtDateTime(s.pausedUntil))}
         {row(
           t('control.decision'),
           c?.decision ? (
@@ -363,5 +373,46 @@ function DryRunCard() {
         {stat(t('control.shaveEnergy'), `${fmtNumber(data.shaveKwh, 1)} kWh`)}
       </CardContent>
     </Card>
+  );
+}
+
+function PauseControls({ data }: { data: ControlStatusDto }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const now = useNow();
+  const done = () => void qc.invalidateQueries({ queryKey: ['control-status'] });
+  const pause = useMutation({ mutationFn: api.pauseControl, onSuccess: done });
+  const clear = useMutation({ mutationFn: api.clearFault, onSuccess: done });
+  const paused = !!data.status?.pausedUntil && data.status.pausedUntil > now;
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {paused ? (
+          <Button size="sm" variant="outline" onClick={() => pause.mutate(0)} data-testid="resume">
+            {t('control.resume')}
+          </Button>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => pause.mutate(30)}
+              data-testid="pause-30"
+            >
+              {t('control.pause30')}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => pause.mutate(120)}>
+              {t('control.pause120')}
+            </Button>
+          </>
+        )}
+        {data.status?.fault && (
+          <Button size="sm" variant="destructive" onClick={() => clear.mutate()}>
+            {t('control.clearFault')}
+          </Button>
+        )}
+      </div>
+      <p className="text-muted-foreground text-xs">{t('control.pauseHint')}</p>
+    </div>
   );
 }

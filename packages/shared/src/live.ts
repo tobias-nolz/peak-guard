@@ -51,6 +51,8 @@ export const liveSnapshotSchema = z.object({
       storCtlMod: z.number().nullable(),
       outWRtePct: z.number().nullable(),
       note: z.string().nullable(),
+      /** true while active control holds the inverter at the desired command */
+      applying: z.boolean(),
     })
     .optional(),
 });

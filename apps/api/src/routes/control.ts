@@ -93,6 +93,55 @@ export function controlRoutes(app: App, { db, sql, env }: RouteDeps) {
     },
   );
 
+  app.post(
+    '/api/control/pause',
+    {
+      schema: {
+        tags: ['control'],
+        description:
+          'Pause active control for some minutes (the inverter runs its own mode), or resume with minutes = 0.',
+        body: z.object({
+          minutes: z
+            .number()
+            .int()
+            .min(0)
+            .max(24 * 60),
+        }),
+        response: { 202: z.object({ requested: z.boolean() }) },
+      },
+    },
+    async (req, reply) => {
+      const m = req.body.minutes;
+      await sql.notify(
+        CONTROL_COMMAND_CHANNEL,
+        JSON.stringify(m > 0 ? { type: 'pause', minutes: m } : { type: 'resume' }),
+      );
+      await addEvent(
+        db,
+        'control_pause',
+        m > 0 ? `Pause for ${m} min requested` : 'Resume requested',
+        { actor: req.user },
+      );
+      return reply.code(202).send({ requested: true });
+    },
+  );
+
+  app.post(
+    '/api/control/clear-fault',
+    {
+      schema: {
+        tags: ['control'],
+        description: 'Clear a latched controller fault.',
+        response: { 202: z.object({ requested: z.boolean() }) },
+      },
+    },
+    async (req, reply) => {
+      await sql.notify(CONTROL_COMMAND_CHANNEL, JSON.stringify({ type: 'clearFault' }));
+      await addEvent(db, 'control_fault', 'Fault reset requested', { actor: req.user });
+      return reply.code(202).send({ requested: true });
+    },
+  );
+
   app.get(
     '/api/control/decisions',
     {

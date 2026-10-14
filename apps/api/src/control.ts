@@ -15,6 +15,9 @@ export interface ControlStatus {
   decision: unknown;
   command: unknown;
   note: string | null;
+  applying?: boolean;
+  fault?: string | null;
+  pausedUntil?: number | null;
   revertTest: {
     status: 'running' | 'passed' | 'failed';
     startedAt: number;

@@ -335,6 +335,15 @@
     "shaveIntervals": "Gekappte Viertelstunden",
     "shaveEnergy": "Batterieenergie",
     "checklist": "Vor dem Aktivieren: siehe Hardware-Checkliste in docs/hardware.md (Solar API, Modbus TCP, „Wechselrichtersteuerung über Modbus“, SunSpec int+SF).",
-    "note": "Hinweis"
+    "note": "Hinweis",
+    "applying": "Limits gesetzt",
+    "notApplying": "nicht gesetzt",
+    "fault": "Störung",
+    "clearFault": "Störung zurücksetzen",
+    "pausedUntil": "Pausiert bis",
+    "pause30": "30 Min pausieren",
+    "pause120": "2 Std pausieren",
+    "resume": "Fortsetzen",
+    "pauseHint": "Während der Pause läuft der Wechselrichter in seinem eigenen Eigenverbrauchsmodus."
   }
 }

@@ -52,6 +52,7 @@ const controller = new Controller({
   writesEnabled: env.CONTROL_WRITES_ENABLED,
   modbusPollMs: env.MODBUS_POLL_MS,
   now: () => collector.snapshot?.ts ?? Date.now(),
+  staleAfterMs: Math.max(30_000, 3 * env.STALE_AFTER_MS),
 });
 log.info(
   {
@@ -63,17 +64,28 @@ log.info(
 
 // Commands from the API (currently: the revert self-test).
 await sql.listen(CONTROL_COMMAND_CHANNEL, (payload: string) => {
-  let cmd: { type?: string; revertS?: number } = {};
+  let cmd: { type?: string; revertS?: number; minutes?: number } = {};
   try {
     cmd = JSON.parse(payload) as typeof cmd;
   } catch {
     return;
   }
-  if (cmd.type === 'revertTest') {
-    log.warn('revert self-test requested');
-    void controller
-      .runRevertTest(cmd.revertS ?? 60)
-      .then((r) => log.info({ result: r }, 'revert self-test finished'));
+  switch (cmd.type) {
+    case 'revertTest':
+      log.warn('revert self-test requested');
+      void controller
+        .runRevertTest(cmd.revertS ?? 60)
+        .then((r) => log.info({ result: r }, 'revert self-test finished'));
+      break;
+    case 'pause':
+      void controller.pause(Date.now() + (cmd.minutes ?? 60) * 60_000);
+      break;
+    case 'resume':
+      void controller.pause(null);
+      break;
+    case 'clearFault':
+      controller.clearFault();
+      break;
   }
 });
 
@@ -90,6 +102,11 @@ const collector: Collector = new Collector({
     await sql.notify(LIVE_CHANNEL, JSON.stringify(snap));
   },
 });
+
+await controller.init();
+// Watchdog (wall clock): restores the inverter's own mode if control ticks stop while limits are active.
+const watchdog = setInterval(() => void controller.watchdog(), 5_000);
+watchdog.unref();
 
 await collector.recover();
 await addEvent(db, 'collector', 'Collector started', {
@@ -129,6 +146,7 @@ async function shutdown(signal: string) {
   stopping = true;
   log.info({ signal }, 'shutting down');
   health.close();
+  clearInterval(watchdog);
   await collector.stop();
   await controller.close();
   await sql.end({ timeout: 5 });
