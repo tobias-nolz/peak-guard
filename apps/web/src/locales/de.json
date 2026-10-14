@@ -1,14 +1,27 @@
 {
-  "app": { "title": "Peak Guard", "tagline": "15-Minuten-Spitzen im Blick" },
-  "nav": { "live": "Live", "history": "Verlauf", "settings": "Einstellungen" },
-  "mode": { "monitor": "Nur Überwachung" },
+  "app": {
+    "title": "Peak Guard",
+    "tagline": "15-Minuten-Spitzen im Blick"
+  },
+  "nav": {
+    "live": "Live",
+    "history": "Verlauf",
+    "settings": "Einstellungen"
+  },
+  "mode": {
+    "monitor": "Nur Überwachung"
+  },
   "connection": {
     "ok": "Wechselrichter online",
     "stale": "Daten verzögert",
     "down": "Wechselrichter offline",
     "stream": "Keine Verbindung zum Server"
   },
-  "theme": { "light": "Hell", "dark": "Dunkel", "system": "System" },
+  "theme": {
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
+  },
   "live": {
     "interval": "Aktuelle Viertelstunde",
     "projected": "Prognose Mittelwert",
@@ -44,7 +57,70 @@
   },
   "history": {
     "title": "Verlauf",
-    "comingSoon": "Detaillierter Verlauf, Heatmaps und Exporte folgen im nächsten Meilenstein."
+    "tabs": {
+      "timeline": "Zeitreihe",
+      "month": "Monat",
+      "analysis": "Analyse",
+      "year": "Jahr"
+    },
+    "range": {
+      "today": "Heute",
+      "week": "7 Tage",
+      "month": "Dieser Monat",
+      "custom": "Benutzerdefiniert",
+      "from": "Von",
+      "to": "Bis"
+    },
+    "grid": "Netzbezug",
+    "load": "Haus",
+    "pv": "PV",
+    "battery": "Batterie",
+    "soc": "SoC",
+    "quarterHours": "15-Min-Mittelwert",
+    "limit": "Grenze",
+    "monthPeak": "Monatsspitze",
+    "export": "Export",
+    "exportIntervals": "Viertelstunden",
+    "exportSeries": "Leistung (1 Min)",
+    "prev": "Zurück",
+    "next": "Weiter",
+    "peak": "Spitze",
+    "peakAt": "am {{when}}",
+    "billed": "Verrechnete Leistung",
+    "cost": "Leistungspreis",
+    "coverage": "Datenqualität",
+    "intervals": "Viertelstunden",
+    "dailyPeaks": "Tagesspitzen",
+    "topPeaks": "Höchste Viertelstunden",
+    "col": {
+      "rank": "#",
+      "time": "Zeit",
+      "avg": "Mittelwert",
+      "max": "Max (Moment)",
+      "quality": "Qualität",
+      "cause": "Vermutliche Ursache",
+      "flows": "Haus · PV · Batterie · SoC"
+    },
+    "noData": "Keine Daten für diesen Zeitraum.",
+    "heatmap": "Spitzen nach Wochentag und Stunde",
+    "heatmapAgg": {
+      "max": "Maximum",
+      "avg": "Durchschnitt"
+    },
+    "histogram": "Verteilung der Viertelstundenleistung",
+    "duration": "Dauerlinie",
+    "durationAxis": "Zeitanteil (%)",
+    "p95": "95. Perzentil",
+    "p99": "99. Perzentil",
+    "aboveLimit": "Über der Grenze",
+    "max": "Maximum",
+    "monthlyPeaks": "Monatsspitzen",
+    "yearCost": "Leistungspreis {{year}}",
+    "compare": "Monate vergleichen",
+    "compareHint": "Bis zu drei Monate wählen, um ihre Tagesspitzen zu vergleichen.",
+    "day": "Tag",
+    "kw": "kW",
+    "count": "Anzahl"
   },
   "settings": {
     "title": "Einstellungen",
@@ -74,5 +150,13 @@
     "estimated": "geschätzt",
     "partial": "teilweise",
     "missing": "fehlt"
+  },
+  "cause": {
+    "battery_empty": "Batterie leer",
+    "battery_limit": "Batterie am Leistungslimit",
+    "battery_idle": "Batterie entlädt nicht",
+    "battery_charging": "Batterie lädt aus dem Netz",
+    "sustained_load": "Anhaltend hohe Last (E-Auto, Wärmepumpe…)",
+    "short_spike": "Kurze Spitze"
   }
 }

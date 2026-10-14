@@ -47,3 +47,25 @@ export function fmtDuration(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
+
+export function fmtDate(
+  ts: number,
+  opts: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit' },
+): string {
+  return new Intl.DateTimeFormat(locale(), { timeZone: TIME_ZONE, ...opts }).format(ts);
+}
+
+export function fmtMonth(month: string, style: 'long' | 'short' = 'long'): string {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  return new Intl.DateTimeFormat(locale(), {
+    month: style,
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(Date.UTC(y, m - 1, 15));
+}
+
+/** Localized short weekday names, Monday first. */
+export function weekdayNames(): string[] {
+  const f = new Intl.DateTimeFormat(locale(), { weekday: 'short', timeZone: 'UTC' });
+  return Array.from({ length: 7 }, (_, i) => f.format(Date.UTC(2024, 0, 1 + i))); // 2024-01-01 is a Monday
+}

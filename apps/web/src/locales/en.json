@@ -1,14 +1,27 @@
 {
-  "app": { "title": "Peak Guard", "tagline": "15-minute peak monitoring" },
-  "nav": { "live": "Live", "history": "History", "settings": "Settings" },
-  "mode": { "monitor": "Monitoring only" },
+  "app": {
+    "title": "Peak Guard",
+    "tagline": "15-minute peak monitoring"
+  },
+  "nav": {
+    "live": "Live",
+    "history": "History",
+    "settings": "Settings"
+  },
+  "mode": {
+    "monitor": "Monitoring only"
+  },
   "connection": {
     "ok": "Inverter online",
     "stale": "Data delayed",
     "down": "Inverter offline",
     "stream": "No connection to server"
   },
-  "theme": { "light": "Light", "dark": "Dark", "system": "System" },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
   "live": {
     "interval": "Current quarter-hour",
     "projected": "Projected average",
@@ -19,7 +32,11 @@
     "remaining": "Remaining",
     "limit": "Limit",
     "monthPeak": "Month peak",
-    "state": { "safe": "Safe", "warning": "Approaching limit", "over": "Over limit" },
+    "state": {
+      "safe": "Safe",
+      "warning": "Approaching limit",
+      "over": "Over limit"
+    },
     "completeness": "Data coverage",
     "powerFlow": "Power flow",
     "pv": "PV",
@@ -40,7 +57,70 @@
   },
   "history": {
     "title": "History",
-    "comingSoon": "Detailed history, heatmaps and exports follow in the next milestone."
+    "tabs": {
+      "timeline": "Time series",
+      "month": "Month",
+      "analysis": "Analysis",
+      "year": "Year"
+    },
+    "range": {
+      "today": "Today",
+      "week": "7 days",
+      "month": "This month",
+      "custom": "Custom",
+      "from": "From",
+      "to": "To"
+    },
+    "grid": "Grid import",
+    "load": "House",
+    "pv": "PV",
+    "battery": "Battery",
+    "soc": "SoC",
+    "quarterHours": "15-min average",
+    "limit": "Limit",
+    "monthPeak": "Month peak",
+    "export": "Export",
+    "exportIntervals": "Quarter-hours",
+    "exportSeries": "Power (1 min)",
+    "prev": "Previous",
+    "next": "Next",
+    "peak": "Peak",
+    "peakAt": "on {{when}}",
+    "billed": "Billed power",
+    "cost": "Capacity charge",
+    "coverage": "Data quality",
+    "intervals": "quarter-hours",
+    "dailyPeaks": "Daily peaks",
+    "topPeaks": "Highest quarter-hours",
+    "col": {
+      "rank": "#",
+      "time": "Time",
+      "avg": "Average",
+      "max": "Max (inst.)",
+      "quality": "Quality",
+      "cause": "Likely cause",
+      "flows": "House · PV · Battery · SoC"
+    },
+    "noData": "No data for this period.",
+    "heatmap": "Peaks by weekday and hour",
+    "heatmapAgg": {
+      "max": "Maximum",
+      "avg": "Average"
+    },
+    "histogram": "Distribution of quarter-hour powers",
+    "duration": "Duration curve",
+    "durationAxis": "share of time (%)",
+    "p95": "95th percentile",
+    "p99": "99th percentile",
+    "aboveLimit": "Above limit",
+    "max": "Maximum",
+    "monthlyPeaks": "Monthly peaks",
+    "yearCost": "Capacity charge {{year}}",
+    "compare": "Compare months",
+    "compareHint": "Select up to three months to compare their daily peaks.",
+    "day": "Day",
+    "kw": "kW",
+    "count": "Count"
   },
   "settings": {
     "title": "Settings",
@@ -70,5 +150,13 @@
     "estimated": "estimated",
     "partial": "partial",
     "missing": "missing"
+  },
+  "cause": {
+    "battery_empty": "Battery empty",
+    "battery_limit": "Battery at max. power",
+    "battery_idle": "Battery not discharging",
+    "battery_charging": "Battery charging from grid",
+    "sustained_load": "Sustained high load (EV, heat pump…)",
+    "short_spike": "Short spike"
   }
 }

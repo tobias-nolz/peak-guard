@@ -64,7 +64,11 @@ jobs:
           CLOCK_SOURCE=inverter
           POLL_INTERVAL_MS=100
           EOF
-          docker compose --profile dev up -d --build --wait
+          docker compose --profile dev build
+          docker compose up -d --wait db
+          # 45 days of simulated history for the history views
+          docker compose run --rm --no-deps collector node dist/seed-demo.js --days 45
+          docker compose --profile dev up -d --wait
       - run: pnpm --filter @peak-guard/web exec playwright install --with-deps chromium
       - run: pnpm --filter @peak-guard/web e2e
       - if: failure()
