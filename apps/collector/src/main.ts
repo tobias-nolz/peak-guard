@@ -1,10 +1,11 @@
 import { createServer } from 'node:http';
 import { addEvent, createDb, getSettings, migrateWithRetry } from '@peak-guard/db';
-import { SolarApiClient } from '@peak-guard/fronius';
+import { ModbusTcpTransport, SolarApiClient } from '@peak-guard/fronius';
 import { DEFAULT_SETTINGS, type Settings } from '@peak-guard/shared';
 import { pino } from 'pino';
 import { Collector, errorMessage } from './collector.js';
-import { loadEnv } from './config.js';
+import { loadEnv, modbusHost } from './config.js';
+import { Controller } from './control/controller.js';
 import { CollectorMetrics } from './metrics.js';
 
 export const LIVE_CHANNEL = 'live';
@@ -33,9 +34,53 @@ await sql.listen(SETTINGS_CHANNEL, () => {
     .catch((err: unknown) => log.error({ err: errorMessage(err) }, 'settings reload failed'));
 });
 
+export const CONTROL_COMMAND_CHANNEL = 'control_command';
+
+const transport = env.MODBUS_ENABLED
+  ? new ModbusTcpTransport({
+      host: modbusHost(env),
+      port: env.MODBUS_PORT,
+      unitId: env.MODBUS_UNIT_ID,
+      timeoutMs: env.REQUEST_TIMEOUT_MS,
+    })
+  : null;
+const controller = new Controller({
+  db,
+  log: log.child({ component: 'controller' }),
+  getSettings: () => settings,
+  transport,
+  writesEnabled: env.CONTROL_WRITES_ENABLED,
+  modbusPollMs: env.MODBUS_POLL_MS,
+  now: () => collector.snapshot?.ts ?? Date.now(),
+});
+log.info(
+  {
+    modbus: env.MODBUS_ENABLED ? `${modbusHost(env)}:${env.MODBUS_PORT}` : 'disabled',
+    writesEnabled: env.CONTROL_WRITES_ENABLED,
+  },
+  'controller configured',
+);
+
+// Commands from the API (currently: the revert self-test).
+await sql.listen(CONTROL_COMMAND_CHANNEL, (payload: string) => {
+  let cmd: { type?: string; revertS?: number } = {};
+  try {
+    cmd = JSON.parse(payload) as typeof cmd;
+  } catch {
+    return;
+  }
+  if (cmd.type === 'revertTest') {
+    log.warn('revert self-test requested');
+    void controller
+      .runRevertTest(cmd.revertS ?? 60)
+      .then((r) => log.info({ result: r }, 'revert self-test finished'));
+  }
+});
+
 const metrics = new CollectorMetrics();
-const collector = new Collector({
+const collector: Collector = new Collector({
   metrics,
+  controller,
   env,
   db,
   log,
@@ -85,6 +130,7 @@ async function shutdown(signal: string) {
   log.info({ signal }, 'shutting down');
   health.close();
   await collector.stop();
+  await controller.close();
   await sql.end({ timeout: 5 });
   process.exit(0);
 }

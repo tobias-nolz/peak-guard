@@ -1,5 +1,6 @@
 import {
   bigserial,
+  boolean,
   serial,
   doublePrecision,
   integer,
@@ -75,6 +76,29 @@ export const kv = pgTable('kv', {
   key: text('key').primaryKey(),
   value: jsonb('value').notNull(),
   updatedAt: tstz('updated_at').notNull().defaultNow(),
+});
+
+/** Every controller decision (dry-run and active), for analysis. Hypertable on ts. */
+export const controlDecisions = pgTable('control_decisions', {
+  ts: tstz('ts').primaryKey(),
+  /** controller mode: off | dryRun | active */
+  controllerMode: text('controller_mode').notNull(),
+  /** decision: release | hold | shave | empty */
+  decision: text('decision').notNull(),
+  targetKw: real('target_kw').notNull(),
+  requiredW: real('required_w').notNull(),
+  /** discharge limit (W); null = no limit */
+  limitW: real('limit_w'),
+  projectedKw: real('projected_kw').notNull(),
+  gridW: real('grid_w').notNull(),
+  batteryW: real('battery_w'),
+  socPct: real('soc_pct'),
+  /** command that was (active) or would have been (dry-run) written */
+  storCtlMod: smallint('stor_ctl_mod'),
+  outWRtePct: real('out_w_rte_pct'),
+  /** true if the command was written to the inverter */
+  applied: boolean('applied').notNull(),
+  note: text('note'),
 });
 
 /** Uploaded smart-meter portal exports (reconciliation with the billing meter). */

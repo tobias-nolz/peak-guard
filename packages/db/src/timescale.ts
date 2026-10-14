@@ -30,6 +30,11 @@ export async function setupTimescale(
   await sql`SELECT add_compression_policy('samples', ${retention.compressAfter}::interval, if_not_exists => TRUE)`;
   await sql`SELECT add_retention_policy('samples', ${retention.rawRetention}::interval, if_not_exists => TRUE)`;
 
+  await sql`SELECT create_hypertable('control_decisions', by_range('ts', INTERVAL '7 days'), if_not_exists => TRUE, migrate_data => TRUE)`;
+  await sql`ALTER TABLE control_decisions SET (timescaledb.compress, timescaledb.compress_orderby = 'ts DESC')`;
+  await sql`SELECT add_compression_policy('control_decisions', INTERVAL '7 days', if_not_exists => TRUE)`;
+  await sql`SELECT add_retention_policy('control_decisions', ${retention.rawRetention}::interval, if_not_exists => TRUE)`;
+
   await sql.unsafe(`
     CREATE MATERIALIZED VIEW IF NOT EXISTS samples_1m
     WITH (timescaledb.continuous, timescaledb.materialized_only = false) AS

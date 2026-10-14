@@ -19,14 +19,33 @@ export const collectorEnvSchema = z.object({
   HEALTH_PORT: z.coerce.number().int().default(8081),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   LOG_PRETTY: bool.default(false),
+  /** Read the battery state via Modbus TCP / SunSpec (needed for active control). */
+  MODBUS_ENABLED: bool.default(false),
+  /** Defaults to the host of FRONIUS_URL. */
+  MODBUS_HOST: z.string().optional(),
+  MODBUS_PORT: z.coerce.number().int().min(1).max(65535).default(502),
+  MODBUS_UNIT_ID: z.coerce.number().int().min(0).max(255).default(1),
+  MODBUS_POLL_MS: z.coerce.number().int().min(500).max(60_000).default(5_000),
+  /**
+   * Kill switch: unless true, nothing is ever written to the inverter — not even in
+   * Active mode or for the revert self-test.
+   */
+  CONTROL_WRITES_ENABLED: bool.default(false),
 });
 
 export type CollectorEnv = z.infer<typeof collectorEnvSchema>;
 
 export function loadEnv(env: NodeJS.ProcessEnv = process.env): CollectorEnv {
-  const parsed = collectorEnvSchema.safeParse(env);
+  // Compose passes unset optional variables as empty strings.
+  const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== ''));
+  const parsed = collectorEnvSchema.safeParse(cleaned);
   if (!parsed.success) {
     throw new Error(`Invalid collector configuration:\n${z.prettifyError(parsed.error)}`);
   }
   return parsed.data;
+}
+
+/** Modbus host: explicit MODBUS_HOST or the host part of FRONIUS_URL. */
+export function modbusHost(env: CollectorEnv): string {
+  return env.MODBUS_HOST ?? new URL(env.FRONIUS_URL).hostname;
 }

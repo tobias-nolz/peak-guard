@@ -28,6 +28,7 @@ import type { LiveSnapshot, Settings } from '@peak-guard/shared';
 import type { Logger } from 'pino';
 import type { CollectorEnv } from './config.js';
 import { DuplicateTimestampDetector } from './clock-check.js';
+import type { Controller } from './control/controller.js';
 import type { CollectorMetrics } from './metrics.js';
 import { PowerSmoother, buildSnapshot } from './snapshot.js';
 
@@ -39,6 +40,7 @@ export interface CollectorDeps {
   getSettings: () => Settings;
   publish: (snapshot: LiveSnapshot) => Promise<void>;
   metrics?: CollectorMetrics;
+  controller?: Controller;
   now?: () => number;
 }
 
@@ -172,6 +174,7 @@ export class Collector {
       this.lastOkAt = Date.now();
       this.deps.metrics?.pollOk((performance.now() - started) / 1000);
       await this.setConnection('ok');
+      await this.runController();
     } catch (err) {
       log.warn({ err: errorMessage(err) }, 'poll failed');
       this.deps.metrics?.pollFailed();
@@ -297,6 +300,26 @@ export class Collector {
     }).catch(() => {});
   }
 
+  /** Feed the controller with the calibrated state of the running quarter-hour. */
+  private async runController(): Promise<void> {
+    const ctl = this.deps.controller;
+    const live = this.tracker.live(this.now());
+    if (!ctl || !live) return;
+    const cal = this.deps.getSettings().calibrationFactor;
+    try {
+      await ctl.tick({
+        elapsedMs: live.elapsedMs,
+        importWh: live.importWh * cal,
+        gridW: this.smoother.value() * cal,
+        batteryW: this.lastFlow?.batteryW ?? null,
+        socPct: this.lastFlow?.socPct ?? null,
+        monthPeakKw: this.monthPeak ? this.monthPeak.kw * cal : null,
+      });
+    } catch (err) {
+      this.deps.log.error({ err: errorMessage(err) }, 'controller tick failed');
+    }
+  }
+
   private async setConnection(next: Connection): Promise<void> {
     if (next === this.connection) return;
     const prev = this.connection;
@@ -320,6 +343,7 @@ export class Collector {
       monthPeak: this.monthPeak,
       settings: this.deps.getSettings(),
       timeZone: this.deps.env.TIME_ZONE,
+      control: this.deps.controller?.snapshotPart(),
     });
     this.lastSnapshot = snap;
     await this.deps

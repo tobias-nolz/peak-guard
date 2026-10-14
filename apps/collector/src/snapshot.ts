@@ -22,6 +22,7 @@ export interface SnapshotInput {
   monthPeak: { start: number; kw: number } | null;
   settings: Settings;
   timeZone: string;
+  control?: LiveSnapshot['control'];
 }
 
 /**
@@ -81,6 +82,7 @@ export function buildSnapshot(i: SnapshotInput): LiveSnapshot {
     ),
     monthCostEur,
     projectedExtraCostEur,
+    ...(i.control ? { control: i.control } : {}),
   };
 }
 

@@ -38,6 +38,21 @@ export const liveSnapshotSchema = z.object({
   monthCostEur: z.number(),
   /** Extra monthly cost if the projected value became the new month peak (€). */
   projectedExtraCostEur: z.number(),
+  /** Peak-shaving controller state (absent when the collector runs without it). */
+  control: z
+    .object({
+      mode: z.enum(['off', 'dryRun', 'active']),
+      writesEnabled: z.boolean(),
+      modbus: z.enum(['disabled', 'ok', 'error']),
+      decision: z.enum(['release', 'hold', 'shave', 'empty']).nullable(),
+      targetKw: z.number().nullable(),
+      limitW: z.number().nullable(),
+      requiredW: z.number().nullable(),
+      storCtlMod: z.number().nullable(),
+      outWRtePct: z.number().nullable(),
+      note: z.string().nullable(),
+    })
+    .optional(),
 });
 
 export type LiveSnapshot = z.infer<typeof liveSnapshotSchema>;

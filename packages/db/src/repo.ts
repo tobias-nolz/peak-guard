@@ -5,6 +5,7 @@ import type { Db } from './client.js';
 import {
   auditLog,
   billingIntervals,
+  controlDecisions,
   events,
   importBatches,
   intervals,
@@ -146,7 +147,14 @@ function toInterval(r: typeof intervals.$inferSelect): IntervalRow {
 export async function getSettings(db: Db): Promise<Settings> {
   const [row] = await db.select().from(settings).where(eq(settings.id, 1));
   if (!row) return DEFAULT_SETTINGS;
-  const parsed = settingsSchema.safeParse({ ...DEFAULT_SETTINGS, ...(row.data as object) });
+  const data = row.data as Partial<Settings>;
+  // Shallow-merge nested objects so settings stored before a field existed get its default.
+  const parsed = settingsSchema.safeParse({
+    ...DEFAULT_SETTINGS,
+    ...data,
+    battery: { ...DEFAULT_SETTINGS.battery, ...data.battery },
+    control: { ...DEFAULT_SETTINGS.control, ...data.control },
+  });
   return parsed.success ? parsed.data : DEFAULT_SETTINGS;
 }
 
@@ -276,5 +284,25 @@ export async function deleteImportBatch(db: Db, id: number): Promise<boolean> {
 
 export async function recentAudit(db: Db, limit = 50) {
   const rows = await db.select().from(auditLog).orderBy(desc(auditLog.id)).limit(limit);
+  return rows.map((r) => ({ ...r, ts: r.ts.getTime() }));
+}
+
+export type DecisionRow = Omit<typeof controlDecisions.$inferInsert, 'ts'> & { ts: number };
+
+export async function insertDecisions(db: Db, rows: readonly DecisionRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  await db
+    .insert(controlDecisions)
+    .values(rows.map((r) => ({ ...r, ts: new Date(r.ts) })))
+    .onConflictDoNothing();
+}
+
+export async function decisionsBetween(db: Db, from: number, to: number, limit = 5_000) {
+  const rows = await db
+    .select()
+    .from(controlDecisions)
+    .where(and(gte(controlDecisions.ts, new Date(from)), lt(controlDecisions.ts, new Date(to))))
+    .orderBy(asc(controlDecisions.ts))
+    .limit(limit);
   return rows.map((r) => ({ ...r, ts: r.ts.getTime() }));
 }
