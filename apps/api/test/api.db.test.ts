@@ -433,4 +433,40 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
       await a.close();
     }
   });
+
+  it('validates simulation requests', async () => {
+    const body = {
+      from: PEAK,
+      to: PEAK + 86_400_000,
+      battery: { capacityKwh: 10, maxPowerKw: 6 },
+      control: { thresholdKw: 10, reservePct: 40 },
+    };
+    const tooBig = await app.inject({
+      method: 'POST',
+      url: '/api/simulation',
+      payload: {
+        ...body,
+        sweep: {
+          thresholdsKw: [10, 11, 12, 13, 14],
+          reservesPct: [10, 20, 30, 40, 50, 60, 70],
+          capacitiesKwh: [5, 10],
+        },
+      },
+    });
+    expect(tooBig.statusCode).toBe(400);
+    expect(tooBig.json<{ error: string }>().error).toMatch(/too large/);
+    // only 15 minutes of samples in this database
+    const thin = await app.inject({ method: 'POST', url: '/api/simulation', payload: body });
+    expect(thin.statusCode).toBe(400);
+    expect(thin.json<{ error: string }>().error).toMatch(/not enough data/);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/api/simulation',
+          payload: { ...body, to: body.from },
+        })
+      ).statusCode,
+    ).toBe(400);
+  });
 });

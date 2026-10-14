@@ -16,6 +16,7 @@ import { liveRoutes } from './routes/live.js';
 import { metricsRoutes } from './routes/metrics.js';
 import { reconciliationRoutes } from './routes/reconciliation.js';
 import { settingsRoutes } from './routes/settings.js';
+import { simulationRoutes } from './routes/simulation.js';
 import { systemRoutes } from './routes/system.js';
 
 export interface AppDeps extends RouteDeps {
@@ -60,5 +61,6 @@ export async function buildApp(deps: AppDeps) {
   historyRoutes(app, deps);
   exportRoutes(app, deps);
   reconciliationRoutes(app, deps);
+  simulationRoutes(app, deps);
   return app;
 }
