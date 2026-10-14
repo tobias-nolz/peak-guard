@@ -2,7 +2,16 @@ import { and, asc, desc, eq, gte, lt, ne, sql } from 'drizzle-orm';
 import type { ClosedInterval, GridSample } from '@peak-guard/core';
 import { DEFAULT_SETTINGS, settingsSchema, type Settings } from '@peak-guard/shared';
 import type { Db } from './client.js';
-import { auditLog, events, intervals, kv, samples, settings } from './schema.js';
+import {
+  auditLog,
+  billingIntervals,
+  events,
+  importBatches,
+  intervals,
+  kv,
+  samples,
+  settings,
+} from './schema.js';
 
 export interface SampleRow {
   ts: number;
@@ -181,4 +190,86 @@ export async function kvSet(db: Db, key: string, value: unknown): Promise<void> 
 
 export async function ping(db: Db): Promise<void> {
   await db.execute(sql`select 1`);
+}
+
+export interface BillingRow {
+  start: number;
+  importWh: number;
+  status: string | null;
+}
+
+/** Store an imported file; existing quarter-hours are overwritten by the newer import. */
+export async function importBillingIntervals(
+  db: Db,
+  meta: { filename: string; actor: string; alignment: string },
+  rows: readonly BillingRow[],
+): Promise<{ batchId: number; from: number; to: number }> {
+  if (rows.length === 0) throw new Error('no rows');
+  const unique = [...new Map(rows.map((r) => [r.start, r])).values()].sort(
+    (a, b) => a.start - b.start,
+  );
+  const from = unique[0]!.start;
+  const to = unique.at(-1)!.start + 15 * 60_000;
+  return db.transaction(async (tx) => {
+    const [batch] = await tx
+      .insert(importBatches)
+      .values({ ...meta, rowCount: unique.length, from: new Date(from), to: new Date(to) })
+      .returning({ id: importBatches.id });
+    const batchId = batch!.id;
+    for (let i = 0; i < unique.length; i += 2_000) {
+      await tx
+        .insert(billingIntervals)
+        .values(
+          unique.slice(i, i + 2_000).map((r) => ({
+            start: new Date(r.start),
+            importWh: r.importWh,
+            status: r.status,
+            batchId,
+          })),
+        )
+        .onConflictDoUpdate({
+          target: billingIntervals.start,
+          set: {
+            importWh: sql`excluded.import_wh`,
+            status: sql`excluded.status`,
+            batchId: sql`excluded.batch_id`,
+          },
+        });
+    }
+    return { batchId, from, to };
+  });
+}
+
+export async function billingIntervalsBetween(
+  db: Db,
+  from: number,
+  to: number,
+): Promise<BillingRow[]> {
+  const rows = await db
+    .select()
+    .from(billingIntervals)
+    .where(
+      and(gte(billingIntervals.start, new Date(from)), lt(billingIntervals.start, new Date(to))),
+    )
+    .orderBy(asc(billingIntervals.start));
+  return rows.map((r) => ({ start: r.start.getTime(), importWh: r.importWh, status: r.status }));
+}
+
+export async function listImportBatches(db: Db) {
+  const rows = await db.select().from(importBatches).orderBy(desc(importBatches.importedAt));
+  return rows.map((r) => ({
+    ...r,
+    importedAt: r.importedAt.getTime(),
+    from: r.from.getTime(),
+    to: r.to.getTime(),
+  }));
+}
+
+/** Delete a batch and the quarter-hours it currently owns. Returns false if unknown. */
+export async function deleteImportBatch(db: Db, id: number): Promise<boolean> {
+  const deleted = await db
+    .delete(importBatches)
+    .where(eq(importBatches.id, id))
+    .returning({ id: importBatches.id });
+  return deleted.length > 0;
 }

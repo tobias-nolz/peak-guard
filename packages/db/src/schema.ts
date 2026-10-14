@@ -1,5 +1,6 @@
 import {
   bigserial,
+  serial,
   doublePrecision,
   integer,
   jsonb,
@@ -74,4 +75,27 @@ export const kv = pgTable('kv', {
   key: text('key').primaryKey(),
   value: jsonb('value').notNull(),
   updatedAt: tstz('updated_at').notNull().defaultNow(),
+});
+
+/** Uploaded smart-meter portal exports (reconciliation with the billing meter). */
+export const importBatches = pgTable('import_batches', {
+  id: serial('id').primaryKey(),
+  filename: text('filename').notNull(),
+  importedAt: tstz('imported_at').notNull().defaultNow(),
+  actor: text('actor').notNull(),
+  rowCount: integer('row_count').notNull(),
+  from: tstz('from').notNull(),
+  to: tstz('to').notNull(),
+  /** whether file timestamps marked interval start or end */
+  alignment: text('alignment').notNull(),
+});
+
+/** Quarter-hour energies as measured by the grid operator's billing meter. */
+export const billingIntervals = pgTable('billing_intervals', {
+  start: tstz('start').primaryKey(),
+  importWh: doublePrecision('import_wh').notNull(),
+  status: text('status'),
+  batchId: integer('batch_id')
+    .notNull()
+    .references(() => importBatches.id, { onDelete: 'cascade' }),
 });

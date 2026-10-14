@@ -1,6 +1,13 @@
 import { z } from 'zod';
-import { inferCauses, intervalStart, type PeakCause } from '@peak-guard/core';
-import { getSettings, intervalsBetween } from '@peak-guard/db';
+import {
+  billedKw,
+  inferCauses,
+  intervalStart,
+  monthlyCost,
+  tariffFor,
+  type PeakCause,
+} from '@peak-guard/core';
+import { billingIntervalsBetween, getSettings, intervalsBetween } from '@peak-guard/db';
 import { analyzeRange } from '../analysis.js';
 import { currentMonth, monthRange, summarizeMonth, summarizeYear } from '../month-summary.js';
 import { autoResolution, flowsForIntervals, series } from '../queries.js';
@@ -77,8 +84,29 @@ export function historyRoutes(app: App, { db, sql, env }: RouteDeps) {
       const month =
         req.params.month === 'current' ? currentMonth(Date.now(), tz) : req.params.month;
       const { from, to } = monthRange(month, tz);
-      const [rows, settings] = await Promise.all([intervalsBetween(db, from, to), getSettings(db)]);
+      const [rows, settings, billing] = await Promise.all([
+        intervalsBetween(db, from, to),
+        getSettings(db),
+        billingIntervalsBetween(db, from, to),
+      ]);
       const summary = summarizeMonth(month, rows, settings, tz, req.query.top);
+      // The grid operator's own measurement, if imported, is what is billed.
+      const officialPeak = billing.reduce<{ start: number; kw: number } | null>(
+        (best, b) =>
+          !best || (b.importWh * 4) / 1000 > best.kw
+            ? { start: b.start, kw: (b.importWh * 4) / 1000 }
+            : best,
+        null,
+      );
+      const tariff = tariffFor(`${month}-01`, settings.tariffs);
+      const official = officialPeak
+        ? {
+            peak: officialPeak,
+            billedKw: billedKw(officialPeak.kw, tariff),
+            costEur: monthlyCost(officialPeak.kw, tariff),
+            intervalCount: billing.length,
+          }
+        : null;
       const flows = await flowsForIntervals(
         sql,
         summary.top.map((t) => intervalStart(t.start)),
@@ -86,6 +114,7 @@ export function historyRoutes(app: App, { db, sql, env }: RouteDeps) {
       const kw = (w: number | null) => (w == null ? null : w / 1000);
       return {
         ...summary,
+        official,
         top: summary.top.map((t) => {
           const a = inferCauses(flows.get(t.start) ?? [], {
             batteryMaxW:

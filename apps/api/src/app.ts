@@ -12,6 +12,7 @@ import type { RouteDeps } from './routes/common.js';
 import { exportRoutes } from './routes/export.js';
 import { historyRoutes } from './routes/history.js';
 import { liveRoutes } from './routes/live.js';
+import { reconciliationRoutes } from './routes/reconciliation.js';
 import { settingsRoutes } from './routes/settings.js';
 import { systemRoutes } from './routes/system.js';
 
@@ -54,5 +55,6 @@ export async function buildApp(deps: AppDeps) {
   settingsRoutes(app, deps);
   historyRoutes(app, deps);
   exportRoutes(app, deps);
+  reconciliationRoutes(app, deps);
   return app;
 }

@@ -186,4 +186,82 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
     >`SELECT actor FROM audit_log ORDER BY id DESC LIMIT 1`;
     expect(audit?.actor).toBe('tester');
   });
+
+  it('imports a billing-meter CSV, detects the alignment and reconciles', async () => {
+    // Portal-style export: end-stamped local times, decimal commas, 2 % above our meter.
+    const fmt = (ts: number) => {
+      const p = new Intl.DateTimeFormat('de-AT', {
+        timeZone: 'Europe/Vienna',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23',
+      }).formatToParts(ts);
+      const g = (t: string) => p.find((x) => x.type === t)!.value;
+      return `${g('day')}.${g('month')}.${g('year')} ${g('hour')}:${g('minute')}`;
+    };
+    const lines = ['Messzeitpunkt;Gemessener Verbrauch (kWh)'];
+    for (let t = JAN; t < JAN + 2 * 86_400_000; t += INTERVAL_MS) {
+      const kw = 2 + ((t / INTERVAL_MS) % 5); // varied so the alignment is detectable
+      lines.push(
+        `${fmt(t + INTERVAL_MS)};${String(((kw * 250 * 1.02) / 1000).toFixed(4)).replace('.', ',')}`,
+      );
+    }
+    // own data with the same pattern for those two days
+    const mine: ClosedInterval[] = [];
+    for (let t = JAN; t < JAN + 2 * 86_400_000; t += INTERVAL_MS)
+      mine.push(iv(t, 2 + ((t / INTERVAL_MS) % 5)));
+    await upsertIntervals(db, mine);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/reconciliation/import?filename=netz-noe.csv',
+      headers: { 'content-type': 'text/csv' },
+      payload: lines.join('\r\n'),
+    });
+    expect(res.statusCode).toBe(200);
+    const imp = res.json<{ batchId: number; rows: number; alignment: string; from: number }>();
+    expect(imp).toMatchObject({ rows: 192, alignment: 'end', from: JAN });
+
+    const rec = (
+      await app.inject(`/api/reconciliation?from=${JAN}&to=${JAN + 2 * 86_400_000}`)
+    ).json<{
+      n: number;
+      suggestedFactor: number;
+      months: { officialPeakKw: number }[];
+    }>();
+    expect(rec.n).toBe(192);
+    expect(rec.suggestedFactor).toBeCloseTo(1.02, 3);
+
+    const month = (await app.inject('/api/months/2027-01')).json<{
+      official: { peak: { kw: number }; intervalCount: number };
+    }>();
+    expect(month.official.intervalCount).toBe(192);
+    expect(month.official.peak.kw).toBeCloseTo(6 * 1.02, 3);
+
+    expect(
+      (await app.inject({ method: 'DELETE', url: `/api/reconciliation/batches/${imp.batchId}` }))
+        .statusCode,
+    ).toBe(204);
+    expect(
+      (await app.inject({ method: 'DELETE', url: `/api/reconciliation/batches/${imp.batchId}` }))
+        .statusCode,
+    ).toBe(404);
+    expect(
+      (await app.inject('/api/months/2027-01')).json<{ official: unknown }>().official,
+    ).toBeNull();
+  });
+
+  it('rejects CSV files it cannot understand', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/reconciliation/import',
+      headers: { 'content-type': 'text/csv' },
+      payload: 'foo;bar\n1;2\n',
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json<{ error: string }>().error).toMatch(/header/);
+  });
 });
