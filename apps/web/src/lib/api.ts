@@ -15,6 +15,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { ...(init?.body ? { 'content-type': 'application/json' } : {}), ...init?.headers },
   });
+  if (
+    res.status === 401 &&
+    !path.startsWith('/api/auth/') &&
+    window.location.pathname !== '/login'
+  ) {
+    // Session missing or expired: go to the login page and come back afterwards.
+    const next = window.location.pathname + window.location.search;
+    window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+  }
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
     throw new ApiError(res.status, body.message ?? body.error ?? res.statusText);
@@ -155,6 +164,21 @@ export interface ReconciliationDto {
   points: [number, number, number][];
 }
 
+export interface EventDto {
+  id: number;
+  ts: number;
+  kind: string;
+  message: string;
+}
+
+export interface AuditDto {
+  id: number;
+  ts: number;
+  actor: string;
+  action: string;
+  changed: string[];
+}
+
 export interface HealthDto {
   ok: boolean;
   db: boolean;
@@ -172,6 +196,15 @@ export const api = {
   month: (month: string) => request<MonthSummaryDto>(`/api/months/${month}`),
   series: (from: number, to: number) => request<SeriesDto>(`/api/series?from=${from}&to=${to}`),
   health: () => request<HealthDto>('/api/health'),
+  me: () => request<{ mode: 'none' | 'password' | 'proxy'; user: string | null }>('/api/auth/me'),
+  login: (username: string, password: string) =>
+    request<{ user: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+  logout: () => request<null>('/api/auth/logout', { method: 'POST' }),
+  events: (limit = 30) => request<EventDto[]>(`/api/events?limit=${limit}`),
+  audit: (limit = 30) => request<AuditDto[]>(`/api/audit?limit=${limit}`),
   importCsv: (file: File, alignment: 'auto' | 'start' | 'end') =>
     file
       .text()
@@ -224,3 +257,10 @@ export const reconciliationQuery = (from: number, to: number) =>
     queryKey: ['reconciliation', from, to],
     queryFn: () => api.reconciliation(from, to),
   });
+export const meQuery = queryOptions({ queryKey: ['me'], queryFn: api.me, staleTime: 5 * 60_000 });
+export const eventsQuery = queryOptions({
+  queryKey: ['events'],
+  queryFn: () => api.events(),
+  refetchInterval: 60_000,
+});
+export const auditQuery = queryOptions({ queryKey: ['audit'], queryFn: () => api.audit() });

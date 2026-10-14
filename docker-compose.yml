@@ -69,6 +69,15 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-peakguard}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-peakguard}
       TIME_ZONE: ${TIME_ZONE:-Europe/Vienna}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      AUTH_MODE: ${AUTH_MODE:-none}
+      AUTH_USERNAME: ${AUTH_USERNAME:-admin}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-}
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-}
+      AUTH_SECRET: ${AUTH_SECRET:-}
+      AUTH_SESSION_HOURS: ${AUTH_SESSION_HOURS:-720}
+      AUTH_PROXY_HEADER: ${AUTH_PROXY_HEADER:-remote-user}
+      COOKIE_SECURE: ${COOKIE_SECURE:-auto}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
     healthcheck:
       test:
         [

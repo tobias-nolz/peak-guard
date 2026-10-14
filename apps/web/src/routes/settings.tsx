@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, settingsQuery } from '@/lib/api';
+import { SystemCard } from '@/components/system-card';
 import { LANGUAGES } from '@/i18n';
 import { useTheme, type ThemePref } from '@/lib/theme';
 
@@ -27,6 +28,7 @@ export function SettingsPage() {
     mutationFn: api.saveSettings,
     onSuccess: (s) => {
       qc.setQueryData(settingsQuery.queryKey, s);
+      void qc.invalidateQueries({ queryKey: ['audit'] });
       setSaved(true);
       setTimeout(() => setSaved(false), 2_500);
     },
@@ -38,6 +40,7 @@ export function SettingsPage() {
       {/* Remount the form when the stored settings change (saved here or elsewhere). */}
       <SettingsForm key={JSON.stringify(data)} initial={data} save={save} saved={saved} />
       <AppearanceCard />
+      <SystemCard />
     </div>
   );
 }

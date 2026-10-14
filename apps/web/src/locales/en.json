@@ -203,5 +203,26 @@
     "officialAxis": "Billing meter",
     "noOverlap": "No overlapping data for this month.",
     "officialOnly": "{{n}} billed quarter-hours without own data"
+  },
+  "auth": {
+    "title": "Sign in",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "failed": "Invalid username or password",
+    "tooMany": "Too many attempts, try again in a minute",
+    "logout": "Sign out"
+  },
+  "system": {
+    "title": "System",
+    "db": "Database",
+    "collector": "Collector heartbeat",
+    "ok": "OK",
+    "down": "unavailable",
+    "ago": "{{s}} s ago",
+    "events": "Events",
+    "audit": "Change log",
+    "changed": "changed",
+    "none": "No entries."
   }
 }

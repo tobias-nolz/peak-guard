@@ -8,6 +8,7 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
+import { authRoutes } from './routes/auth.js';
 import type { RouteDeps } from './routes/common.js';
 import { exportRoutes } from './routes/export.js';
 import { historyRoutes } from './routes/history.js';
@@ -50,6 +51,7 @@ export async function buildApp(deps: AppDeps) {
   });
   await app.register(swaggerUi, { routePrefix: '/api/docs' });
 
+  await authRoutes(app, deps);
   systemRoutes(app, deps);
   liveRoutes(app, deps);
   settingsRoutes(app, deps);

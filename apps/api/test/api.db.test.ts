@@ -16,6 +16,7 @@ import {
 } from '@peak-guard/db';
 import { DEFAULT_SETTINGS } from '@peak-guard/shared';
 import { buildApp } from '../src/app.js';
+import { apiEnvSchema } from '../src/config.js';
 import { LiveHub } from '../src/live-hub.js';
 
 const adminUrl = process.env.TEST_DATABASE_URL;
@@ -75,7 +76,7 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
     await refreshMinuteAggregate(sql);
 
     app = await buildApp({
-      env: { DATABASE_URL: '', HOST: '', PORT: 0, TIME_ZONE: 'Europe/Vienna', LOG_LEVEL: 'error' },
+      env: apiEnvSchema.parse({ DATABASE_URL: 'postgres://unused', LOG_LEVEL: 'error' }),
       db,
       sql,
       hub: new LiveHub(),
@@ -171,11 +172,12 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
     });
     expect(bad.statusCode).toBe(400);
     const next = { ...DEFAULT_SETTINGS, thresholdKw: 11.5 };
+    // AUTH_MODE=none: client-supplied identity headers are ignored
     const ok = await app.inject({
       method: 'PUT',
       url: '/api/settings',
       payload: next,
-      headers: { 'remote-user': 'tester' },
+      headers: { 'remote-user': 'mallory' },
     });
     expect(ok.statusCode).toBe(200);
     expect((await app.inject('/api/settings')).json<{ thresholdKw: number }>().thresholdKw).toBe(
@@ -184,7 +186,7 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
     const [audit] = await sql<
       { actor: string }[]
     >`SELECT actor FROM audit_log ORDER BY id DESC LIMIT 1`;
-    expect(audit?.actor).toBe('tester');
+    expect(audit?.actor).toBe('local');
   });
 
   it('imports a billing-meter CSV, detects the alignment and reconciles', async () => {
@@ -263,5 +265,121 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
     });
     expect(res.statusCode).toBe(400);
     expect(res.json<{ error: string }>().error).toMatch(/header/);
+  });
+
+  describe('authentication', () => {
+    const appWith = (extra: Record<string, string>) =>
+      buildApp({
+        env: apiEnvSchema.parse({
+          DATABASE_URL: 'postgres://unused',
+          LOG_LEVEL: 'error',
+          ...extra,
+        }),
+        db,
+        sql,
+        hub: new LiveHub(),
+      });
+
+    it('password mode: protects the API and issues a session cookie', async () => {
+      const a = await appWith({
+        AUTH_MODE: 'password',
+        AUTH_USERNAME: 'tobias',
+        AUTH_PASSWORD: 'correct horse battery',
+        AUTH_SECRET: 'x'.repeat(32),
+      });
+      try {
+        expect((await a.inject('/api/health')).statusCode).toBe(200);
+        expect((await a.inject('/api/settings')).statusCode).toBe(401);
+        expect((await a.inject('/api/auth/me')).json()).toEqual({ mode: 'password', user: null });
+
+        const bad = await a.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          payload: { username: 'tobias', password: 'nope' },
+        });
+        expect(bad.statusCode).toBe(401);
+
+        const ok = await a.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          payload: { username: 'tobias', password: 'correct horse battery' },
+          headers: { 'x-forwarded-proto': 'https' },
+        });
+        expect(ok.statusCode).toBe(200);
+        const cookie = String(ok.headers['set-cookie']);
+        expect(cookie).toMatch(
+          /^pg_session=.+; Path=\/; HttpOnly; SameSite=Lax; Max-Age=\d+; Secure$/,
+        );
+        const session = cookie.split(';')[0]!;
+
+        const me = await a.inject({ url: '/api/auth/me', headers: { cookie: session } });
+        expect(me.json()).toEqual({ mode: 'password', user: 'tobias' });
+        expect(
+          (await a.inject({ url: '/api/settings', headers: { cookie: session } })).statusCode,
+        ).toBe(200);
+
+        // audit trail records the logged-in user
+        await a.inject({
+          method: 'PUT',
+          url: '/api/settings',
+          headers: { cookie: session },
+          payload: { ...DEFAULT_SETTINGS, thresholdKw: 12 },
+        });
+        const [audit] = await sql<
+          { actor: string }[]
+        >`SELECT actor FROM audit_log ORDER BY id DESC LIMIT 1`;
+        expect(audit?.actor).toBe('tobias');
+
+        // brute force is rate limited (5 per minute per IP; 2 used above)
+        const codes: number[] = [];
+        for (let i = 0; i < 5; i++) {
+          codes.push(
+            (
+              await a.inject({
+                method: 'POST',
+                url: '/api/auth/login',
+                payload: { username: 'x', password: 'y' },
+              })
+            ).statusCode,
+          );
+        }
+        expect(codes).toEqual([401, 401, 401, 429, 429]);
+      } finally {
+        await a.close();
+      }
+    });
+
+    it('proxy mode: trusts the configured header', async () => {
+      const a = await appWith({ AUTH_MODE: 'proxy', AUTH_PROXY_HEADER: 'X-Forwarded-User' });
+      try {
+        expect((await a.inject('/api/settings')).statusCode).toBe(401);
+        const r = await a.inject({ url: '/api/auth/me', headers: { 'x-forwarded-user': 'alice' } });
+        expect(r.json()).toEqual({ mode: 'proxy', user: 'alice' });
+        expect(
+          (await a.inject({ url: '/api/settings', headers: { 'x-forwarded-user': 'alice' } }))
+            .statusCode,
+        ).toBe(200);
+      } finally {
+        await a.close();
+      }
+    });
+
+    it('metrics token bypasses the session', async () => {
+      const a = await appWith({
+        AUTH_MODE: 'password',
+        AUTH_PASSWORD: 'correct horse battery',
+        METRICS_TOKEN: 't'.repeat(20),
+      });
+      try {
+        const r = await a.inject({
+          url: '/api/metrics',
+          headers: { authorization: `Bearer ${'t'.repeat(20)}` },
+        });
+        expect(r.statusCode).not.toBe(401);
+        expect((await a.inject('/api/metrics')).statusCode).toBe(401);
+      } finally {
+        await a.close();
+      }
+    });
   });
 });

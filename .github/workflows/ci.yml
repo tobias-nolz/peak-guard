@@ -63,6 +63,10 @@ jobs:
           MOCK_SPEED=30
           CLOCK_SOURCE=inverter
           POLL_INTERVAL_MS=100
+          AUTH_MODE=password
+          AUTH_USERNAME=e2e
+          AUTH_PASSWORD=e2e-password-123
+          AUTH_SECRET=ci-secret-ci-secret-ci-secret-ci-secret
           EOF
           docker compose --profile dev build
           docker compose up -d --wait db
@@ -71,6 +75,9 @@ jobs:
           docker compose --profile dev up -d --wait
       - run: pnpm --filter @peak-guard/web exec playwright install --with-deps chromium
       - run: pnpm --filter @peak-guard/web e2e
+        env:
+          E2E_AUTH_USER: e2e
+          E2E_AUTH_PASSWORD: e2e-password-123
       - if: failure()
         run: docker compose --profile dev logs
       - if: failure()

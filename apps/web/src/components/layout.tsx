@@ -1,8 +1,11 @@
 import { Link, Outlet } from '@tanstack/react-router';
-import { Activity, BarChart3, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import { useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Activity, BarChart3, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { api, meQuery } from '@/lib/api';
 import { LiveContext } from '@/lib/live-context';
 import { useTheme, type ThemePref } from '@/lib/theme';
 import { useLive } from '@/lib/use-live';
@@ -16,6 +19,15 @@ export function Layout() {
   const conn = live.stream === 'error' ? 'stream' : (live.snapshot?.connection ?? 'down');
   const connVariant = conn === 'ok' ? 'safe' : conn === 'stale' ? 'warning' : 'over';
   const ThemeIcon = pref === 'dark' ? Moon : pref === 'light' ? Sun : Monitor;
+  const me = useQuery(meQuery);
+  const signedOut = me.data != null && me.data.user == null;
+  useEffect(() => {
+    // The live stream can't report 401 to the page, so gate on /api/auth/me as well.
+    if (signedOut) {
+      const next = window.location.pathname + window.location.search;
+      window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+    }
+  }, [signedOut]);
 
   const nav = [
     { to: '/', label: t('nav.live'), icon: Activity },
@@ -62,6 +74,17 @@ export function Layout() {
               >
                 <ThemeIcon />
               </Button>
+              {me.data?.mode === 'password' && me.data.user && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title={`${t('auth.logout')} (${me.data.user})`}
+                  aria-label={t('auth.logout')}
+                  onClick={() => void api.logout().then(() => window.location.assign('/login'))}
+                >
+                  <LogOut />
+                </Button>
+              )}
             </div>
           </div>
         </header>

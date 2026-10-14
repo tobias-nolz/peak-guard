@@ -69,7 +69,7 @@ export function reconciliationRoutes(app: App, { db, env }: RouteDeps) {
         importWh: r.wh,
         status: r.status,
       }));
-      const actor = (req.headers['remote-user'] as string | undefined) ?? 'local';
+      const actor = req.user ?? 'unknown';
       const { batchId, from, to } = await importBillingIntervals(
         db,
         { filename: req.query.filename, actor, alignment },

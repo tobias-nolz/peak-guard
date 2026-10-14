@@ -273,3 +273,8 @@ export async function deleteImportBatch(db: Db, id: number): Promise<boolean> {
     .returning({ id: importBatches.id });
   return deleted.length > 0;
 }
+
+export async function recentAudit(db: Db, limit = 50) {
+  const rows = await db.select().from(auditLog).orderBy(desc(auditLog.id)).limit(limit);
+  return rows.map((r) => ({ ...r, ts: r.ts.getTime() }));
+}

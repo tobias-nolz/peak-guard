@@ -203,5 +203,26 @@
     "officialAxis": "Abrechnungszähler",
     "noOverlap": "Keine überlappenden Daten in diesem Monat.",
     "officialOnly": "{{n}} abgerechnete Viertelstunden ohne eigene Daten"
+  },
+  "auth": {
+    "title": "Anmelden",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "submit": "Anmelden",
+    "failed": "Benutzername oder Passwort falsch",
+    "tooMany": "Zu viele Versuche, bitte in einer Minute erneut",
+    "logout": "Abmelden"
+  },
+  "system": {
+    "title": "System",
+    "db": "Datenbank",
+    "collector": "Collector-Lebenszeichen",
+    "ok": "OK",
+    "down": "nicht erreichbar",
+    "ago": "vor {{s}} s",
+    "events": "Ereignisse",
+    "audit": "Änderungsprotokoll",
+    "changed": "geändert",
+    "none": "Keine Einträge."
   }
 }

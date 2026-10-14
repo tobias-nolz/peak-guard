@@ -1,20 +1,27 @@
-import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 import { Layout } from '@/components/layout';
 import { HistoryPage, historySearchSchema } from '@/routes/history';
 import { LivePage } from '@/routes/live';
+import { LoginPage } from '@/routes/login';
 import { SettingsPage } from '@/routes/settings';
 
-const rootRoute = createRootRoute({ component: Layout });
+const rootRoute = createRootRoute({ component: Outlet });
+
+/** Pathless layout route with navigation, live stream and status badges. */
+const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: Layout });
 
 const routeTree = rootRoute.addChildren([
-  createRoute({ getParentRoute: () => rootRoute, path: '/', component: LivePage }),
-  createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/history',
-    component: HistoryPage,
-    validateSearch: historySearchSchema,
-  }),
-  createRoute({ getParentRoute: () => rootRoute, path: '/settings', component: SettingsPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: '/login', component: LoginPage }),
+  appRoute.addChildren([
+    createRoute({ getParentRoute: () => appRoute, path: '/', component: LivePage }),
+    createRoute({
+      getParentRoute: () => appRoute,
+      path: '/history',
+      component: HistoryPage,
+      validateSearch: historySearchSchema,
+    }),
+    createRoute({ getParentRoute: () => appRoute, path: '/settings', component: SettingsPage }),
+  ]),
 ]);
 
 export const router = createRouter({ routeTree, defaultPreload: 'intent' });

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { kvGet, ping, recentEvents } from '@peak-guard/db';
+import { kvGet, ping, recentAudit, recentEvents } from '@peak-guard/db';
 import type { App, RouteDeps } from './common.js';
 
 export function systemRoutes(app: App, { db, hub, env }: RouteDeps) {
@@ -59,6 +59,37 @@ export function systemRoutes(app: App, { db, hub, env }: RouteDeps) {
     async (req) => {
       const rows = await recentEvents(db, req.query.limit);
       return rows.map((r) => ({ ...r, ts: r.ts.getTime() }));
+    },
+  );
+
+  app.get(
+    '/api/audit',
+    {
+      schema: {
+        tags: ['system'],
+        description:
+          'Audit log of configuration changes (newest first) with the changed top-level keys.',
+        querystring: z.object({ limit: z.coerce.number().int().min(1).max(500).default(50) }),
+      },
+    },
+    async (req) => {
+      const rows = await recentAudit(db, req.query.limit);
+      return rows.map((r) => {
+        const before = (r.before ?? {}) as Record<string, unknown>;
+        const after = (r.after ?? {}) as Record<string, unknown>;
+        const changed = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
+          (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]),
+        );
+        return {
+          id: r.id,
+          ts: r.ts,
+          actor: r.actor,
+          action: r.action,
+          changed,
+          before: r.before,
+          after: r.after,
+        };
+      });
     },
   );
 }
