@@ -242,6 +242,80 @@ function SettingsForm({
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('settings.battery')}</CardTitle>
+          <CardDescription>{t('settings.batteryHelp')}</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-5 sm:grid-cols-3">
+          <Field
+            id="bcap"
+            label={t('settings.capacity')}
+            help={t('settings.unknown')}
+            invalid={invalid('battery.capacityKwh')}
+          >
+            <Input
+              id="bcap"
+              type="number"
+              step="0.01"
+              min={0}
+              value={draft.battery.capacityKwh ?? ''}
+              aria-invalid={invalid('battery.capacityKwh')}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  battery: {
+                    ...draft.battery,
+                    capacityKwh: e.target.value === '' ? null : num(e.target.value),
+                  },
+                })
+              }
+            />
+          </Field>
+          <Field
+            id="bpow"
+            label={t('settings.maxPower')}
+            help={t('settings.unknown')}
+            invalid={invalid('battery.maxPowerKw')}
+          >
+            <Input
+              id="bpow"
+              type="number"
+              step="0.1"
+              min={0}
+              value={draft.battery.maxPowerKw ?? ''}
+              aria-invalid={invalid('battery.maxPowerKw')}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  battery: {
+                    ...draft.battery,
+                    maxPowerKw: e.target.value === '' ? null : num(e.target.value),
+                  },
+                })
+              }
+            />
+          </Field>
+          <Field id="bsoc" label={t('settings.minSoc')} invalid={invalid('battery.minSocPct')}>
+            <Input
+              id="bsoc"
+              type="number"
+              step="1"
+              min={0}
+              max={100}
+              value={draft.battery.minSocPct}
+              aria-invalid={invalid('battery.minSocPct')}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  battery: { ...draft.battery, minSocPct: num(e.target.value) },
+                })
+              }
+            />
+          </Field>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={save.isPending} data-testid="save-settings">
           {t('settings.save')}

@@ -61,7 +61,8 @@
       "timeline": "Time series",
       "month": "Month",
       "analysis": "Analysis",
-      "year": "Year"
+      "year": "Year",
+      "reconciliation": "Reconciliation"
     },
     "range": {
       "today": "Today",
@@ -120,7 +121,8 @@
     "compareHint": "Select up to three months to compare their daily peaks.",
     "day": "Day",
     "kw": "kW",
-    "count": "Count"
+    "count": "Count",
+    "official": "Billed (grid operator)"
   },
   "settings": {
     "title": "Settings",
@@ -143,7 +145,13 @@
     "addTier": "Add tier",
     "appearance": "Appearance",
     "language": "Language",
-    "invalid": "Please check the highlighted fields."
+    "invalid": "Please check the highlighted fields.",
+    "battery": "Battery",
+    "batteryHelp": "Used for cause analysis now and for peak shaving later (read from the inverter once Modbus is enabled).",
+    "capacity": "Usable capacity (kWh)",
+    "maxPower": "Max. discharge power (kW)",
+    "minSoc": "Minimum SoC in the inverter (%)",
+    "unknown": "empty = unknown"
   },
   "quality": {
     "exact": "exact",
@@ -158,5 +166,42 @@
     "battery_charging": "Battery charging from grid",
     "sustained_load": "Sustained high load (EV, heat pump…)",
     "short_spike": "Short spike"
+  },
+  "reconciliation": {
+    "upload": "Import smart-meter export",
+    "uploadHint": "CSV export of quarter-hour values from your grid operator's portal (e.g. smartmeter.netz-noe.at). Columns are detected automatically.",
+    "file": "CSV file",
+    "alignment": "Timestamps mark",
+    "alignmentOpt": {
+      "auto": "Detect automatically",
+      "start": "Interval start",
+      "end": "Interval end"
+    },
+    "import": "Import",
+    "importing": "Importing…",
+    "imported": "Imported {{rows}} quarter-hours ({{from}} – {{to}}), timestamps = {{alignment}}.",
+    "batches": "Imported files",
+    "noBatches": "No files imported yet.",
+    "delete": "Delete",
+    "rows": "rows",
+    "compare": "Comparison",
+    "pairs": "Matched quarter-hours",
+    "ownKwh": "Own meter",
+    "officialKwh": "Billing meter",
+    "ratio": "Ratio",
+    "suggested": "Suggested calibration factor",
+    "apply": "Apply",
+    "applied": "Calibration factor set to {{f}}",
+    "current": "current: {{f}}",
+    "meanDelta": "Mean deviation",
+    "maxDelta": "Largest deviation",
+    "peaks": "Monthly peaks",
+    "ownPeak": "Own peak",
+    "officialPeak": "Billed peak",
+    "scatter": "Own vs. billing meter (kW per quarter-hour)",
+    "own": "Own",
+    "officialAxis": "Billing meter",
+    "noOverlap": "No overlapping data for this month.",
+    "officialOnly": "{{n}} billed quarter-hours without own data"
   }
 }

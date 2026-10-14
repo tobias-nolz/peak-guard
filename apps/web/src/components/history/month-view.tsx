@@ -93,8 +93,20 @@ export function MonthView({ month, onMonth }: { month: string; onMonth: (m: stri
           sub={data?.peak ? t('history.peakAt', { when: fmtDateTime(data.peak.start) }) : undefined}
           testId="month-peak"
         />
-        <Kpi label={t('history.billed')} value={fmtKw(data?.billedKw ?? null, 1)} />
-        <Kpi label={t('history.cost')} value={fmtEur(data?.costEur ?? null)} />
+        {data?.official ? (
+          <Kpi
+            label={t('history.official')}
+            value={fmtKw(data.official.peak.kw)}
+            sub={`${t('history.billed')} ${fmtKw(data.official.billedKw, 1)} · ${fmtEur(data.official.costEur)}`}
+            testId="official-peak"
+          />
+        ) : (
+          <Kpi label={t('history.billed')} value={fmtKw(data?.billedKw ?? null, 1)} />
+        )}
+        <Kpi
+          label={t('history.cost')}
+          value={fmtEur(data?.official?.costEur ?? data?.costEur ?? null)}
+        />
         <Kpi
           label={t('history.coverage')}
           value={total ? `${fmtNumber((exact / total) * 100, 1)} %` : '–'}

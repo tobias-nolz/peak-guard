@@ -66,6 +66,12 @@ export interface MonthSummaryDto {
   costEur: number;
   tariffId: string;
   top: TopPeakDto[];
+  official: {
+    peak: { start: number; kw: number };
+    billedKw: number;
+    costEur: number;
+    intervalCount: number;
+  } | null;
   daily: { day: string; peakKw: number | null; peakStart: number | null; importKwh: number }[];
   quality: Record<string, number>;
   intervalCount: number;
@@ -104,6 +110,51 @@ export interface AnalysisDto {
   duration: { pct: number; kw: number }[];
 }
 
+export interface ImportResultDto {
+  batchId: number;
+  rows: number;
+  from: number;
+  to: number;
+  alignment: 'start' | 'end';
+  columns: { time: string; value: string; unit: string };
+  warnings: string[];
+}
+
+export interface ImportBatchDto {
+  id: number;
+  filename: string;
+  importedAt: number;
+  actor: string;
+  rowCount: number;
+  from: number;
+  to: number;
+  alignment: string;
+}
+
+export interface ReconciliationDto {
+  n: number;
+  officialOnly: number;
+  ownKwh: number;
+  officialKwh: number;
+  ratio: number | null;
+  factorAll: number | null;
+  factorHighLoad: number | null;
+  suggestedFactor: number | null;
+  meanAbsDeltaKw: number | null;
+  maxDelta: { start: number; ownKw: number; officialKw: number } | null;
+  months: {
+    month: string;
+    n: number;
+    ownKwh: number;
+    officialKwh: number;
+    ownPeakKw: number | null;
+    ownPeakStart: number | null;
+    officialPeakKw: number | null;
+    officialPeakStart: number | null;
+  }[];
+  points: [number, number, number][];
+}
+
 export interface HealthDto {
   ok: boolean;
   db: boolean;
@@ -121,6 +172,20 @@ export const api = {
   month: (month: string) => request<MonthSummaryDto>(`/api/months/${month}`),
   series: (from: number, to: number) => request<SeriesDto>(`/api/series?from=${from}&to=${to}`),
   health: () => request<HealthDto>('/api/health'),
+  importCsv: (file: File, alignment: 'auto' | 'start' | 'end') =>
+    file
+      .text()
+      .then((body) =>
+        request<ImportResultDto>(
+          `/api/reconciliation/import?filename=${encodeURIComponent(file.name)}&alignment=${alignment}`,
+          { method: 'POST', body, headers: { 'content-type': 'text/csv' } },
+        ),
+      ),
+  batches: () => request<ImportBatchDto[]>('/api/reconciliation/batches'),
+  deleteBatch: (id: number) =>
+    request<null>(`/api/reconciliation/batches/${id}`, { method: 'DELETE' }),
+  reconciliation: (from: number, to: number) =>
+    request<ReconciliationDto>(`/api/reconciliation?from=${from}&to=${to}`),
   year: (year: number) => request<YearSummaryDto>(`/api/years/${year}`),
   analysis: (from: number, to: number, agg: 'max' | 'avg') =>
     request<AnalysisDto>(`/api/analysis?from=${from}&to=${to}&agg=${agg}`),
@@ -152,4 +217,10 @@ export const analysisQuery = (from: number, to: number, agg: 'max' | 'avg') =>
   queryOptions({
     queryKey: ['analysis', from, to, agg],
     queryFn: () => api.analysis(from, to, agg),
+  });
+export const batchesQuery = queryOptions({ queryKey: ['batches'], queryFn: api.batches });
+export const reconciliationQuery = (from: number, to: number) =>
+  queryOptions({
+    queryKey: ['reconciliation', from, to],
+    queryFn: () => api.reconciliation(from, to),
   });

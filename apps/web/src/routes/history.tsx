@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { AnalysisView } from '@/components/history/analysis-view';
 import { MonthView } from '@/components/history/month-view';
+import { ReconciliationView } from '@/components/history/reconciliation-view';
 import { Timeline } from '@/components/history/timeline';
 import { YearView } from '@/components/history/year-view';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { monthOf, useNow } from '@/lib/time';
 
 export const historySearchSchema = z.object({
-  tab: z.enum(['timeline', 'month', 'analysis', 'year']).catch('timeline'),
+  tab: z.enum(['timeline', 'month', 'analysis', 'year', 'reconciliation']).catch('timeline'),
   range: z.enum(['today', 'week', 'month', 'custom']).catch('today'),
   month: z
     .string()
@@ -34,8 +35,8 @@ export function HistoryPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">{t('history.title')}</h1>
       <Tabs value={search.tab} onValueChange={(v) => set({ tab: v as typeof search.tab })}>
-        <TabsList className="w-full sm:w-fit">
-          {(['timeline', 'month', 'analysis', 'year'] as const).map((k) => (
+        <TabsList className="w-full overflow-x-auto sm:w-fit">
+          {(['timeline', 'month', 'analysis', 'year', 'reconciliation'] as const).map((k) => (
             <TabsTrigger key={k} value={k}>
               {t(`history.tabs.${k}`)}
             </TabsTrigger>
@@ -49,6 +50,9 @@ export function HistoryPage() {
         </TabsContent>
         <TabsContent value="analysis">
           <AnalysisView month={month} onMonth={(m) => set({ month: m })} />
+        </TabsContent>
+        <TabsContent value="reconciliation">
+          <ReconciliationView month={month} onMonth={(m) => set({ month: m })} />
         </TabsContent>
         <TabsContent value="year">
           <YearView year={year} onYear={(y) => set({ year: y })} />

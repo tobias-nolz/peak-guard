@@ -37,7 +37,8 @@ describe.skipIf(!adminUrl)('collector ↔ TimescaleDB', () => {
     const u = new URL(adminUrl!);
     u.pathname = '/peakguard_test';
     url = u.toString();
-    await migrateDb(url);
+    // concurrent runs (collector + API starting together) are serialized by an advisory lock
+    await Promise.all([migrateDb(url), migrateDb(url)]);
     await migrateDb(url); // idempotent
     ({ sql, db } = createDb(url));
   }, 60_000);

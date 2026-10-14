@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { createDb, getSettings, migrateDb, addEvent } from '@peak-guard/db';
+import { addEvent, createDb, getSettings, migrateWithRetry } from '@peak-guard/db';
 import { SolarApiClient } from '@peak-guard/fronius';
 import { DEFAULT_SETTINGS, type Settings } from '@peak-guard/shared';
 import { pino } from 'pino';
@@ -16,20 +16,9 @@ const log = pino({
   ...(env.LOG_PRETTY ? { transport: { target: 'pino-pretty' } } : {}),
 });
 
-async function waitForDb(): Promise<void> {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await migrateDb(env.DATABASE_URL);
-      return;
-    } catch (err) {
-      if (attempt >= 30) throw err;
-      log.warn({ err: errorMessage(err), attempt }, 'database not ready, retrying');
-      await new Promise((r) => setTimeout(r, 2_000));
-    }
-  }
-}
-
-await waitForDb();
+await migrateWithRetry(env.DATABASE_URL, (err, attempt) =>
+  log.warn({ err: errorMessage(err), attempt }, 'database not ready, retrying'),
+);
 log.info('database migrated');
 
 const { sql, db } = createDb(env.DATABASE_URL);

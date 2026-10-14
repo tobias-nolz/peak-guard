@@ -61,7 +61,8 @@
       "timeline": "Zeitreihe",
       "month": "Monat",
       "analysis": "Analyse",
-      "year": "Jahr"
+      "year": "Jahr",
+      "reconciliation": "Abgleich"
     },
     "range": {
       "today": "Heute",
@@ -120,7 +121,8 @@
     "compareHint": "Bis zu drei Monate wählen, um ihre Tagesspitzen zu vergleichen.",
     "day": "Tag",
     "kw": "kW",
-    "count": "Anzahl"
+    "count": "Anzahl",
+    "official": "Abgerechnet (Netzbetreiber)"
   },
   "settings": {
     "title": "Einstellungen",
@@ -143,7 +145,13 @@
     "addTier": "Stufe hinzufügen",
     "appearance": "Darstellung",
     "language": "Sprache",
-    "invalid": "Bitte die markierten Felder prüfen."
+    "invalid": "Bitte die markierten Felder prüfen.",
+    "battery": "Batterie",
+    "batteryHelp": "Wird jetzt für die Ursachenanalyse und später fürs Peak-Shaving verwendet (wird mit Modbus vom Wechselrichter gelesen).",
+    "capacity": "Nutzbare Kapazität (kWh)",
+    "maxPower": "Max. Entladeleistung (kW)",
+    "minSoc": "Minimaler SoC im Wechselrichter (%)",
+    "unknown": "leer = unbekannt"
   },
   "quality": {
     "exact": "exakt",
@@ -158,5 +166,42 @@
     "battery_charging": "Batterie lädt aus dem Netz",
     "sustained_load": "Anhaltend hohe Last (E-Auto, Wärmepumpe…)",
     "short_spike": "Kurze Spitze"
+  },
+  "reconciliation": {
+    "upload": "Smart-Meter-Export importieren",
+    "uploadHint": "CSV-Export der Viertelstundenwerte aus dem Portal deines Netzbetreibers (z. B. smartmeter.netz-noe.at). Spalten werden automatisch erkannt.",
+    "file": "CSV-Datei",
+    "alignment": "Zeitstempel bezeichnen",
+    "alignmentOpt": {
+      "auto": "Automatisch erkennen",
+      "start": "Beginn des Intervalls",
+      "end": "Ende des Intervalls"
+    },
+    "import": "Importieren",
+    "importing": "Importiere…",
+    "imported": "{{rows}} Viertelstunden importiert ({{from}} – {{to}}), Zeitstempel = {{alignment}}.",
+    "batches": "Importierte Dateien",
+    "noBatches": "Noch keine Dateien importiert.",
+    "delete": "Löschen",
+    "rows": "Zeilen",
+    "compare": "Vergleich",
+    "pairs": "Zugeordnete Viertelstunden",
+    "ownKwh": "Eigener Zähler",
+    "officialKwh": "Abrechnungszähler",
+    "ratio": "Verhältnis",
+    "suggested": "Vorgeschlagener Kalibrierfaktor",
+    "apply": "Übernehmen",
+    "applied": "Kalibrierfaktor auf {{f}} gesetzt",
+    "current": "aktuell: {{f}}",
+    "meanDelta": "Mittlere Abweichung",
+    "maxDelta": "Größte Abweichung",
+    "peaks": "Monatsspitzen",
+    "ownPeak": "Eigene Spitze",
+    "officialPeak": "Abgerechnete Spitze",
+    "scatter": "Eigener vs. Abrechnungszähler (kW je Viertelstunde)",
+    "own": "Eigen",
+    "officialAxis": "Abrechnungszähler",
+    "noOverlap": "Keine überlappenden Daten in diesem Monat.",
+    "officialOnly": "{{n}} abgerechnete Viertelstunden ohne eigene Daten"
   }
 }
