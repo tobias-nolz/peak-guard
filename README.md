@@ -22,6 +22,7 @@ From 2027, Austrian grid operators (here: Netz NÖ) bill a **capacity charge (Le
   - Reads and writes the Gen24 via Modbus/SunSpec model 124.
   - Modes: Off → Dry-run (default) → Active.
   - Every decision is logged, and Dry-run shows the estimated saving.
+- **Integrations:** notifications (ntfy, Telegram, webhook, e-mail), MQTT with Home Assistant discovery, load-shedding hooks (webhook/MQTT) that act before the battery, time-variable grid-fee windows, a Grafana dashboard.
 - **Operations:** login (password or auth proxy), audit log, Prometheus metrics, scheduled backups with a tested restore, gap handling and backfill from meter counters.
 
 ## Quickstart (with the built-in mock inverter)
@@ -78,14 +79,15 @@ Fronius Gen24 ──HTTP (Solar API v1)──▶ collector ──▶ TimescaleDB
                                            └───────────────────┘            └────▶ browser
 ```
 
-| Service         | Role                                                                                                                                                                                                                       |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `collector`     | Polls the inverter (1–5 s), turns samples into quarter-hours, persists everything and publishes live snapshots via Postgres `NOTIFY`. It runs on its own, so monitoring (and later control) continues when the UI is down. |
-| `api`           | REST + OpenAPI (`/api/docs`). Streams live snapshots to browsers via Server-Sent Events. Settings changes notify the collector.                                                                                            |
-| `web`           | React SPA served by Caddy, which also proxies `/api`. PWA-installable, dark mode, German/English.                                                                                                                          |
-| `db`            | PostgreSQL 18 + TimescaleDB. Raw samples (hypertable, compressed after 2 days, kept 90 days), a 1-minute continuous aggregate (2 years) and the quarter-hour table (forever).                                              |
-| `mock-inverter` | `dev` profile only. Speaks Solar API v1 like a Gen24, with time acceleration and fault injection.                                                                                                                          |
-| `backup`        | `backup` profile only. Daily `pg_dump` with retention; restore with `docker/restore.sh`.                                                                                                                                   |
+| Service            | Role                                                                                                                                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `collector`        | Polls the inverter (1–5 s), turns samples into quarter-hours, persists everything and publishes live snapshots via Postgres `NOTIFY`. It runs on its own, so monitoring (and later control) continues when the UI is down. |
+| `api`              | REST + OpenAPI (`/api/docs`). Streams live snapshots to browsers via Server-Sent Events. Settings changes notify the collector.                                                                                            |
+| `web`              | React SPA served by Caddy, which also proxies `/api`. PWA-installable, dark mode, German/English.                                                                                                                          |
+| `db`               | PostgreSQL 18 + TimescaleDB. Raw samples (hypertable, compressed after 2 days, kept 90 days), a 1-minute continuous aggregate (2 years) and the quarter-hour table (forever).                                              |
+| `mock-inverter`    | `dev` profile only. Speaks Solar API v1 like a Gen24, with time acceleration and fault injection.                                                                                                                          |
+| `backup`           | `backup` profile only. Daily `pg_dump` with retention; restore with `docker/restore.sh`.                                                                                                                                   |
+| `mqtt` / `grafana` | Optional profiles: Mosquitto broker for MQTT/Home Assistant, Grafana with a provisioned dashboard.                                                                                                                         |
 
 Monorepo layout (pnpm workspaces, TypeScript strict):
 
@@ -184,4 +186,4 @@ Internal packages export their TypeScript sources under the custom condition `@p
 | M6        | What-if simulation of thresholds / reserves / battery sizes                                         | ✅                                         |
 | M7        | Modbus/SunSpec readout, dry-run controller, hardware checklist, revert self-test                    | ✅ (tested against the simulated inverter) |
 | M8        | Active peak shaving (gated, fail-benign setpoints only)                                             | ✅ (tested against the simulated inverter) |
-| M9        | Notifications, MQTT + Home Assistant, load-shedding hooks, time-variable grid fees                  | next                                       |
+| M9        | Notifications, MQTT + Home Assistant, load-shedding hooks, time-variable grid fees                  | ✅                                         |

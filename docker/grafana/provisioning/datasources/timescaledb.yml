@@ -1,0 +1,15 @@
+apiVersion: 1
+datasources:
+  - name: Peak Guard (TimescaleDB)
+    uid: peakguard-db
+    type: grafana-postgresql-datasource
+    url: db:5432
+    user: ${POSTGRES_USER}
+    jsonData:
+      database: ${POSTGRES_DB}
+      sslmode: disable
+      postgresVersion: 1800
+      timescaledb: true
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD}
+    isDefault: true

@@ -137,6 +137,18 @@ Flexible loads can be reduced _before_ the battery is used (Settings → Load sh
 
 The target is the controller's current target, or the effective limit when control is off. Shed loads are restored on shutdown. Every action and every failure is logged as an event. The Live page shows which loads are currently shed.
 
+## Grafana
+
+`docker compose --profile grafana up -d` starts Grafana on `GRAFANA_PORT` (default 3001). Log in as `admin` with `GRAFANA_ADMIN_PASSWORD`. The TimescaleDB datasource and the _Peak Guard_ dashboard are provisioned automatically:
+
+- stat panels: month peak, today's peak, current grid power and SoC
+- quarter-hour averages coloured against the limit
+- 1-minute power flows
+- SoC
+- the controller's projection, target and discharge limit
+
+The datasource uses the main database user. For a read-only Grafana, create a role with `SELECT` rights and change the datasource in `docker/grafana/provisioning/datasources/timescaledb.yml`.
+
 ## Upgrades
 
 ```sh
