@@ -40,6 +40,12 @@ export const collectorEnvSchema = z.object({
   NOTIFY_SMTP_URL: z.string().optional(),
   NOTIFY_EMAIL_FROM: z.string().optional(),
   NOTIFY_EMAIL_TO: z.string().optional(),
+  /** MQTT broker, e.g. mqtt://user:pass@mosquitto:1883 (optional). */
+  MQTT_URL: z.string().optional(),
+  MQTT_TOPIC_PREFIX: z.string().default('peakguard'),
+  /** Home Assistant discovery prefix; set to "" to disable discovery. */
+  MQTT_DISCOVERY_PREFIX: z.string().default('homeassistant'),
+  MQTT_INTERVAL_MS: z.coerce.number().int().min(1_000).default(5_000),
 });
 
 export type CollectorEnv = z.infer<typeof collectorEnvSchema>;

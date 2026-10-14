@@ -7,6 +7,7 @@ import { Collector, errorMessage } from './collector.js';
 import { loadEnv, modbusHost } from './config.js';
 import { Controller } from './control/controller.js';
 import { CollectorMetrics } from './metrics.js';
+import { MqttPublisher } from './mqtt/publisher.js';
 import { Notifier } from './notify/notifier.js';
 
 export const LIVE_CHANNEL = 'live';
@@ -117,7 +118,21 @@ await sql.listen(CONTROL_COMMAND_CHANNEL, (payload: string) => {
 });
 
 const metrics = new CollectorMetrics();
+const mqtt = env.MQTT_URL
+  ? new MqttPublisher(
+      {
+        url: env.MQTT_URL,
+        prefix: env.MQTT_TOPIC_PREFIX,
+        discoveryPrefix: env.MQTT_DISCOVERY_PREFIX,
+        intervalMs: env.MQTT_INTERVAL_MS,
+      },
+      log.child({ component: 'mqtt' }),
+    )
+  : null;
+mqtt?.start();
+
 const collector: Collector = new Collector({
+  ...(mqtt ? { mqtt } : {}),
   metrics,
   controller,
   notifier,
@@ -177,6 +192,7 @@ async function shutdown(signal: string) {
   clearInterval(watchdog);
   await collector.stop();
   await controller.close();
+  await mqtt?.stop().catch(() => {});
   await sql.end({ timeout: 5 });
   process.exit(0);
 }

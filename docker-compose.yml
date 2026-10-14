@@ -59,6 +59,10 @@ services:
       NOTIFY_SMTP_URL: ${NOTIFY_SMTP_URL:-}
       NOTIFY_EMAIL_FROM: ${NOTIFY_EMAIL_FROM:-}
       NOTIFY_EMAIL_TO: ${NOTIFY_EMAIL_TO:-}
+      MQTT_URL: ${MQTT_URL:-}
+      MQTT_TOPIC_PREFIX: ${MQTT_TOPIC_PREFIX:-peakguard}
+      MQTT_DISCOVERY_PREFIX: ${MQTT_DISCOVERY_PREFIX-homeassistant}
+      MQTT_INTERVAL_MS: ${MQTT_INTERVAL_MS:-5000}
     healthcheck:
       test:
         [
@@ -179,6 +183,22 @@ services:
       timeout: 10s
       start_period: 10m
 
+  mqtt:
+    image: eclipse-mosquitto:2.1-alpine
+    profiles: [mqtt]
+    restart: unless-stopped
+    volumes:
+      - ./docker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqtt-data:/mosquitto/data
+    ports:
+      - '${MQTT_PORT:-1883}:1883'
+    healthcheck:
+      test: ['CMD-SHELL', "mosquitto_sub -t '$$SYS/broker/uptime' -C 1 -W 3 >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 volumes:
   db-data:
+  mqtt-data:
   backups:

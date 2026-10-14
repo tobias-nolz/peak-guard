@@ -29,6 +29,7 @@ import type { Logger } from 'pino';
 import type { CollectorEnv } from './config.js';
 import { DuplicateTimestampDetector } from './clock-check.js';
 import type { Controller } from './control/controller.js';
+import type { MqttPublisher } from './mqtt/publisher.js';
 import type { Notifier } from './notify/notifier.js';
 import type { CollectorMetrics } from './metrics.js';
 import { PowerSmoother, buildSnapshot } from './snapshot.js';
@@ -43,6 +44,7 @@ export interface CollectorDeps {
   metrics?: CollectorMetrics;
   controller?: Controller;
   notifier?: Notifier;
+  mqtt?: MqttPublisher;
   now?: () => number;
 }
 
@@ -402,6 +404,7 @@ export class Collector {
       control: this.deps.controller?.snapshotPart(),
     });
     this.lastSnapshot = snap;
+    this.deps.mqtt?.publish(snap);
     // Warn once per quarter-hour when the projection nears/exceeds the limit (after 3 min,
     // when the projection is meaningful).
     if (snap.state !== 'safe' && snap.interval.elapsedMs >= 180_000) {

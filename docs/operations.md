@@ -113,6 +113,18 @@ The script wraps the restore in `timescaledb_pre_restore()` / `timescaledb_post_
   - `CONTROL_WRITES_ENABLED=false` + `docker compose up -d collector`
   - stopping the collector, which restores defaults on shutdown and is backed by the inverter's revert timer
 
+## MQTT and Home Assistant
+
+Set `MQTT_URL` to publish the live state to an MQTT broker. Either use your existing broker (e.g. the Home Assistant Mosquitto add-on), or the bundled one: `docker compose --profile mqtt up -d` with `MQTT_URL=mqtt://mqtt:1883`.
+
+| Topic                                      | Content                                                                                                                                                                 |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `peakguard/status`                         | `online` / `offline` (retained; last will on crash)                                                                                                                     |
+| `peakguard/state`                          | JSON, retained, every `MQTT_INTERVAL_MS`: power flows, SoC, quarter-hour projection and state, threshold, month peak, capacity charge, control mode, decision and limit |
+| `homeassistant/sensor/peak_guard/*/config` | Home Assistant discovery: 16 sensors on one _Peak Guard_ device                                                                                                         |
+
+Set `MQTT_DISCOVERY_PREFIX=` (empty) to disable discovery.
+
 ## Upgrades
 
 ```sh
