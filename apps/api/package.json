@@ -1,0 +1,23 @@
+{
+  "name": "@peak-guard/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "dev": "tsx watch --conditions=@peak-guard/source src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@fastify/swagger": "^9.9.2",
+    "@fastify/swagger-ui": "^6.1.2",
+    "@peak-guard/core": "workspace:*",
+    "@peak-guard/db": "workspace:*",
+    "@peak-guard/shared": "workspace:*",
+    "fastify": "^5.12.7",
+    "fastify-type-provider-zod": "^7.0.0",
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
+  }
+}
