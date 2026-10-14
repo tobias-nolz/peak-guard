@@ -382,4 +382,55 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
       }
     });
   });
+
+  it('exposes Prometheus metrics including the live snapshot', async () => {
+    const hub = new LiveHub();
+    const a = await buildApp({
+      env: apiEnvSchema.parse({ DATABASE_URL: 'postgres://unused' }),
+      db,
+      sql,
+      hub,
+    });
+    try {
+      hub.receive(
+        JSON.stringify({
+          ts: Date.now(),
+          connection: 'ok',
+          power: { gridW: 4200, loadW: 5000, pvW: 800, batteryW: 0, socPct: 55 },
+          interval: {
+            start: 0,
+            end: 900_000,
+            elapsedMs: 1,
+            remainingMs: 1,
+            importWh: 1,
+            runningAvgKw: 1,
+            committedKw: 2.5,
+            projectedKw: 9.5,
+            completeness: 1,
+            source: 'counter',
+          },
+          thresholdKw: 10,
+          effectiveLimitKw: 10,
+          monthPeak: { start: 0, kw: 12.4 },
+          state: 'warning',
+          monthCostEur: 23.4,
+          projectedExtraCostEur: 0,
+        }),
+      );
+      await a.inject('/api/settings');
+      const res = await a.inject('/api/metrics');
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['content-type']).toMatch(/text\/plain/);
+      expect(res.body).toMatch(/^peakguard_grid_power_watts 4200$/m);
+      expect(res.body).toMatch(/^peakguard_interval_projected_kw 9.5$/m);
+      expect(res.body).toMatch(/^peakguard_interval_state 1$/m);
+      expect(res.body).toMatch(/^peakguard_month_peak_kw 12.4$/m);
+      expect(res.body).toMatch(
+        /peakguard_api_http_request_duration_seconds_count\{method="GET",route="\/api\/settings",status="200"\} 1/,
+      );
+      expect(res.body).toMatch(/^peakguard_api_process_cpu_user_seconds_total /m);
+    } finally {
+      await a.close();
+    }
+  });
 });

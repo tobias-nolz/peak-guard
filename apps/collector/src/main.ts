@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS, type Settings } from '@peak-guard/shared';
 import { pino } from 'pino';
 import { Collector, errorMessage } from './collector.js';
 import { loadEnv } from './config.js';
+import { CollectorMetrics } from './metrics.js';
 
 export const LIVE_CHANNEL = 'live';
 export const SETTINGS_CHANNEL = 'settings_changed';
@@ -32,7 +33,9 @@ await sql.listen(SETTINGS_CHANNEL, () => {
     .catch((err: unknown) => log.error({ err: errorMessage(err) }, 'settings reload failed'));
 });
 
+const metrics = new CollectorMetrics();
 const collector = new Collector({
+  metrics,
   env,
   db,
   log,
@@ -53,7 +56,14 @@ log.info({ fronius: env.FRONIUS_URL, pollMs: env.POLL_INTERVAL_MS }, 'collector 
 
 // Health endpoint for Docker: healthy while the poll loop is alive. An unreachable
 // inverter is reported (connection) but doesn't make the collector unhealthy.
-const health = createServer((_req, res) => {
+const health = createServer((req, res) => {
+  if (req.url === '/metrics') {
+    void metrics.registry.metrics().then((text) => {
+      res.writeHead(200, { 'content-type': metrics.registry.contentType });
+      res.end(text);
+    });
+    return;
+  }
   const loopAge = Date.now() - collector.lastLoopAt;
   const ok = loopAge < Math.max(30_000, 5 * env.POLL_INTERVAL_MS + env.REQUEST_TIMEOUT_MS);
   res.writeHead(ok ? 200 : 503, { 'content-type': 'application/json' });

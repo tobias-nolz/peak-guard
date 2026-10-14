@@ -13,6 +13,7 @@ import type { RouteDeps } from './routes/common.js';
 import { exportRoutes } from './routes/export.js';
 import { historyRoutes } from './routes/history.js';
 import { liveRoutes } from './routes/live.js';
+import { metricsRoutes } from './routes/metrics.js';
 import { reconciliationRoutes } from './routes/reconciliation.js';
 import { settingsRoutes } from './routes/settings.js';
 import { systemRoutes } from './routes/system.js';
@@ -52,6 +53,7 @@ export async function buildApp(deps: AppDeps) {
   await app.register(swaggerUi, { routePrefix: '/api/docs' });
 
   await authRoutes(app, deps);
+  metricsRoutes(app, deps);
   systemRoutes(app, deps);
   liveRoutes(app, deps);
   settingsRoutes(app, deps);

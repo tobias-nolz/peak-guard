@@ -28,6 +28,7 @@ import type { LiveSnapshot, Settings } from '@peak-guard/shared';
 import type { Logger } from 'pino';
 import type { CollectorEnv } from './config.js';
 import { DuplicateTimestampDetector } from './clock-check.js';
+import type { CollectorMetrics } from './metrics.js';
 import { PowerSmoother, buildSnapshot } from './snapshot.js';
 
 export interface CollectorDeps {
@@ -37,6 +38,7 @@ export interface CollectorDeps {
   log: Logger;
   getSettings: () => Settings;
   publish: (snapshot: LiveSnapshot) => Promise<void>;
+  metrics?: CollectorMetrics;
   now?: () => number;
 }
 
@@ -149,6 +151,7 @@ export class Collector {
   /** One poll cycle. Never throws. */
   async tick(): Promise<void> {
     const { api, log } = this.deps;
+    const started = performance.now();
     try {
       // The Gen24 tolerates at most two parallel requests.
       const [flowRes, meterRes] = await Promise.all([api.powerFlow(), api.meters()]);
@@ -167,9 +170,11 @@ export class Collector {
         flow,
       );
       this.lastOkAt = Date.now();
+      this.deps.metrics?.pollOk((performance.now() - started) / 1000);
       await this.setConnection('ok');
     } catch (err) {
       log.warn({ err: errorMessage(err) }, 'poll failed');
+      this.deps.metrics?.pollFailed();
       const age = Date.now() - this.lastOkAt;
       await this.setConnection(
         age > 3 * this.deps.env.STALE_AFTER_MS
@@ -229,7 +234,10 @@ export class Collector {
           );
         }
       }
-      for (const c of closed) await this.onClosed(c);
+      for (const c of closed) {
+        this.deps.metrics?.intervalClosed(c.quality);
+        await this.onClosed(c);
+      }
     }
     return closed;
   }
@@ -330,6 +338,7 @@ export class Collector {
     this.buffer = [];
     try {
       await insertSamples(this.deps.db, rows);
+      this.deps.metrics?.samplesWritten(rows.length);
       this.lastFlush = now;
       await kvSet(this.deps.db, 'collector.heartbeat', { ts: now, lastSampleTs: rows.at(-1)!.ts });
     } catch (err) {
