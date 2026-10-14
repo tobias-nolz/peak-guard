@@ -1,0 +1,10 @@
+packages:
+  - packages/*
+  - apps/*
+
+onlyBuiltDependencies:
+  - esbuild
+
+# modbus-serial pulls in serialport; we only use Modbus TCP, so skip the native build.
+ignoredBuiltDependencies:
+  - '@serialport/bindings-cpp'

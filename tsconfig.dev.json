@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "customConditions": ["@peak-guard/source"],
+    "noEmit": true
+  }
+}
