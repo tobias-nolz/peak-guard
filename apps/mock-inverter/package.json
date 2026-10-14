@@ -1,0 +1,19 @@
+{
+  "name": "@peak-guard/mock-inverter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "dev": "tsx watch --conditions=@peak-guard/source src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@peak-guard/core": "workspace:*",
+    "@peak-guard/sim": "workspace:*"
+  },
+  "devDependencies": {
+    "@peak-guard/fronius": "workspace:*"
+  }
+}
