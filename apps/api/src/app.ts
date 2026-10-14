@@ -10,6 +10,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { authRoutes } from './routes/auth.js';
 import type { RouteDeps } from './routes/common.js';
+import { controlRoutes } from './routes/control.js';
 import { exportRoutes } from './routes/export.js';
 import { historyRoutes } from './routes/history.js';
 import { liveRoutes } from './routes/live.js';
@@ -62,5 +63,6 @@ export async function buildApp(deps: AppDeps) {
   exportRoutes(app, deps);
   reconciliationRoutes(app, deps);
   simulationRoutes(app, deps);
+  controlRoutes(app, deps);
   return app;
 }

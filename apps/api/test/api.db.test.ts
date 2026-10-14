@@ -8,6 +8,7 @@ import { INTERVAL_MS, type ClosedInterval } from '@peak-guard/core';
 import {
   createDb,
   insertSamples,
+  kvSet,
   migrateDb,
   refreshMinuteAggregate,
   upsertIntervals,
@@ -468,5 +469,73 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
         })
       ).statusCode,
     ).toBe(400);
+  });
+
+  describe('control', () => {
+    const status = (patch: Record<string, unknown> = {}) => ({
+      ts: Date.now(),
+      mode: 'dryRun',
+      writesEnabled: true,
+      modbus: { state: 'ok', error: null, storage: null, model: null },
+      decision: null,
+      command: null,
+      note: null,
+      revertTest: null,
+      ...patch,
+    });
+    const active = { ...DEFAULT_SETTINGS.control, mode: 'active' };
+
+    it('gates Active on both the control and the settings endpoint', async () => {
+      await kvSet(db, 'control.status', status());
+      const r = await app.inject({ method: 'PUT', url: '/api/control', payload: active });
+      expect(r.statusCode).toBe(409);
+      expect(r.json<{ error: string }>().error).toMatch(/revert self-test/);
+      const viaSettings = await app.inject({
+        method: 'PUT',
+        url: '/api/settings',
+        payload: { ...DEFAULT_SETTINGS, control: active },
+      });
+      expect(viaSettings.statusCode).toBe(409);
+
+      await kvSet(
+        db,
+        'control.status',
+        status({ revertTest: { status: 'passed', startedAt: 0, finishedAt: 1, message: 'ok' } }),
+      );
+      expect(
+        (await app.inject({ method: 'PUT', url: '/api/control', payload: active })).statusCode,
+      ).toBe(200);
+      expect(
+        (await app.inject('/api/control/status')).json<{ settings: { mode: string } }>().settings
+          .mode,
+      ).toBe('active');
+      // back to dry-run is always allowed
+      await kvSet(db, 'control.status', status({ writesEnabled: false }));
+      expect(
+        (
+          await app.inject({
+            method: 'PUT',
+            url: '/api/control',
+            payload: { ...active, mode: 'dryRun' },
+          })
+        ).statusCode,
+      ).toBe(200);
+    });
+
+    it('sends the revert-test command to the collector only when possible', async () => {
+      await kvSet(db, 'control.status', status({ writesEnabled: false }));
+      const blocked = await app.inject({ method: 'POST', url: '/api/control/revert-test' });
+      expect(blocked.statusCode).toBe(409);
+      expect(blocked.json<{ error: string }>().error).toMatch(/CONTROL_WRITES_ENABLED/);
+
+      await kvSet(db, 'control.status', status());
+      const received: string[] = [];
+      const listener = await sql.listen('control_command', (p) => received.push(p));
+      const ok = await app.inject({ method: 'POST', url: '/api/control/revert-test' });
+      expect(ok.statusCode).toBe(202);
+      await expect.poll(() => received.length).toBe(1);
+      expect(JSON.parse(received[0]!)).toMatchObject({ type: 'revertTest', revertS: 60 });
+      await listener.unlisten();
+    });
   });
 });
