@@ -7,7 +7,12 @@ import {
 } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { settingsSchema, type Settings } from '@peak-guard/shared';
+import {
+  settingsSchema,
+  type HookAction,
+  type LoadShedRuleSettings,
+  type Settings,
+} from '@peak-guard/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -320,6 +325,7 @@ function SettingsForm({
       </Card>
 
       <NotificationsCard draft={draft} setDraft={setDraft} />
+      <LoadSheddingCard draft={draft} setDraft={setDraft} invalid={invalid} />
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={save.isPending} data-testid="save-settings">
@@ -486,5 +492,232 @@ function NotificationsCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function LoadSheddingCard({
+  draft,
+  setDraft,
+  invalid,
+}: {
+  draft: Settings;
+  setDraft: (s: Settings) => void;
+  invalid: (path: string) => boolean;
+}) {
+  const { t } = useTranslation();
+  const rules = draft.loadShedding;
+  const setRule = (idx: number, patch: Partial<LoadShedRuleSettings>) =>
+    setDraft({ ...draft, loadShedding: rules.map((r, k) => (k === idx ? { ...r, ...patch } : r)) });
+  const add = () =>
+    setDraft({
+      ...draft,
+      loadShedding: [
+        ...rules,
+        {
+          id: Math.random().toString(36).slice(2, 10),
+          name: `Hook ${rules.length + 1}`,
+          enabled: false,
+          triggerRatio: 0.95,
+          releaseRatio: 0.8,
+          minOnMinutes: 5,
+          maxOnMinutes: 60,
+          minOffMinutes: 5,
+          shed: { type: 'webhook', url: 'http://wallbox.local/api/shed', method: 'POST' },
+          restore: { type: 'webhook', url: 'http://wallbox.local/api/restore', method: 'POST' },
+        },
+      ],
+    });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('shed.title')}</CardTitle>
+        <CardDescription>{t('shed.intro')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {rules.map((r, idx) => (
+          <div key={r.id} className="space-y-4 rounded-lg border p-4" data-testid="shed-rule">
+            <div className="flex flex-wrap items-end gap-4">
+              <Field
+                id={`shed-name-${idx}`}
+                label={t('shed.name')}
+                invalid={invalid(`loadShedding.${idx}.name`)}
+              >
+                <Input
+                  id={`shed-name-${idx}`}
+                  value={r.name}
+                  onChange={(e) => setRule(idx, { name: e.target.value })}
+                />
+              </Field>
+              <label className="flex items-center gap-2 pb-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4"
+                  checked={r.enabled}
+                  onChange={(e) => setRule(idx, { enabled: e.target.checked })}
+                />
+                {t('shed.enabled')}
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="ml-auto"
+                onClick={() =>
+                  setDraft({ ...draft, loadShedding: rules.filter((_, k) => k !== idx) })
+                }
+              >
+                <Trash2 /> {t('shed.remove')}
+              </Button>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-5">
+              {(
+                [
+                  ['triggerRatio', 'shed.trigger', 100],
+                  ['releaseRatio', 'shed.release', 100],
+                  ['minOnMinutes', 'shed.minOn', 1],
+                  ['maxOnMinutes', 'shed.maxOn', 1],
+                  ['minOffMinutes', 'shed.minOff', 1],
+                ] as const
+              ).map(([key, label, factor]) => (
+                <Field
+                  key={key}
+                  id={`shed-${key}-${idx}`}
+                  label={t(label)}
+                  invalid={invalid(`loadShedding.${idx}.${key}`)}
+                >
+                  <Input
+                    id={`shed-${key}-${idx}`}
+                    type="number"
+                    value={Math.round(r[key] * factor * 100) / 100}
+                    onChange={(e) => setRule(idx, { [key]: Number(e.target.value) / factor })}
+                  />
+                </Field>
+              ))}
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <ActionEditor
+                label={t('shed.shedAction')}
+                idPrefix={`shed-a-${idx}`}
+                action={r.shed}
+                onChange={(shed) => setRule(idx, { shed })}
+                invalid={invalid(`loadShedding.${idx}.shed`)}
+              />
+              <ActionEditor
+                label={t('shed.restoreAction')}
+                idPrefix={`restore-a-${idx}`}
+                action={r.restore}
+                onChange={(restore) => setRule(idx, { restore })}
+                invalid={invalid(`loadShedding.${idx}.restore`)}
+              />
+            </div>
+          </div>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={add}
+          disabled={rules.length >= 10}
+        >
+          <Plus /> {t('shed.add')}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActionEditor({
+  label,
+  idPrefix,
+  action,
+  onChange,
+  invalid,
+}: {
+  label: string;
+  idPrefix: string;
+  action: HookAction;
+  onChange: (a: HookAction) => void;
+  invalid: boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <fieldset className={`space-y-3 rounded-md border p-3 ${invalid ? 'border-destructive' : ''}`}>
+      <legend className="px-1 text-sm font-medium">{label}</legend>
+      <Tabs
+        value={action.type}
+        onValueChange={(v) =>
+          onChange(
+            v === 'webhook'
+              ? { type: 'webhook', url: 'http://', method: 'POST' }
+              : { type: 'mqtt', topic: '', payload: '', retain: false },
+          )
+        }
+      >
+        <TabsList>
+          <TabsTrigger value="webhook">Webhook</TabsTrigger>
+          <TabsTrigger value="mqtt">MQTT</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      {action.type === 'webhook' ? (
+        <div className="grid gap-3 sm:grid-cols-[6rem_1fr]">
+          <Field id={`${idPrefix}-method`} label={t('shed.method')}>
+            <select
+              id={`${idPrefix}-method`}
+              className="border-input h-9 w-full rounded-md border bg-transparent px-2 text-sm"
+              value={action.method}
+              onChange={(e) =>
+                onChange({ ...action, method: e.target.value as 'GET' | 'POST' | 'PUT' })
+              }
+            >
+              <option>GET</option>
+              <option>POST</option>
+              <option>PUT</option>
+            </select>
+          </Field>
+          <Field id={`${idPrefix}-url`} label={t('shed.url')}>
+            <Input
+              id={`${idPrefix}-url`}
+              value={action.url}
+              onChange={(e) => onChange({ ...action, url: e.target.value })}
+            />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field id={`${idPrefix}-body`} label={t('shed.body')}>
+              <Input
+                id={`${idPrefix}-body`}
+                value={action.body ?? ''}
+                onChange={(e) => onChange({ ...action, body: e.target.value || undefined })}
+              />
+            </Field>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          <Field id={`${idPrefix}-topic`} label={t('shed.topic')}>
+            <Input
+              id={`${idPrefix}-topic`}
+              value={action.topic}
+              onChange={(e) => onChange({ ...action, topic: e.target.value })}
+            />
+          </Field>
+          <Field id={`${idPrefix}-payload`} label={t('shed.payload')}>
+            <Input
+              id={`${idPrefix}-payload`}
+              value={action.payload}
+              onChange={(e) => onChange({ ...action, payload: e.target.value })}
+            />
+          </Field>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={action.retain}
+              onChange={(e) => onChange({ ...action, retain: e.target.checked })}
+            />
+            {t('shed.retain')}
+          </label>
+        </div>
+      )}
+    </fieldset>
   );
 }

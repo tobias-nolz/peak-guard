@@ -53,6 +53,11 @@ function IntervalCard({ snap, className }: { snap: LiveSnapshot; className?: str
             {fmtTime(i.start)} – {fmtTime(i.end)}
           </CardDescription>
         </div>
+        {snap.shed && snap.shed.length > 0 && (
+          <Badge variant="warning" data-testid="shed-active">
+            {t('shed.active', { names: snap.shed.join(', ') })}
+          </Badge>
+        )}
         <Badge variant={stateVariant} data-testid="interval-state">
           {t(`live.state.${snap.state}`)}
         </Badge>

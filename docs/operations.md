@@ -125,6 +125,18 @@ Set `MQTT_URL` to publish the live state to an MQTT broker. Either use your exis
 
 Set `MQTT_DISCOVERY_PREFIX=` (empty) to disable discovery.
 
+## Load shedding
+
+Flexible loads can be reduced _before_ the battery is used (Settings → Load shedding). Each hook has:
+
+- **Trigger and release:** shed when the running quarter-hour is projected at ≥ _x_ % of the target, restore below _y_ %.
+- **Timing:** minimum on, maximum on and minimum off times, which prevent flapping and protect comfort (e.g. a heat pump).
+- **Actions:** a _shed_ and a _restore_ action, each either a webhook (GET/POST/PUT with an optional body) or an MQTT message (needs `MQTT_URL`).
+  - Example (go-eCharger, local API v2): shed `GET http://wallbox/api/set?amp=6`, restore `GET http://wallbox/api/set?amp=16`.
+  - Example (Home Assistant): publish to a topic an automation listens to.
+
+The target is the controller's current target, or the effective limit when control is off. Shed loads are restored on shutdown. Every action and every failure is logged as an event. The Live page shows which loads are currently shed.
+
 ## Upgrades
 
 ```sh

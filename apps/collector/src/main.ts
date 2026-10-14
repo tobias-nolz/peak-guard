@@ -7,6 +7,7 @@ import { Collector, errorMessage } from './collector.js';
 import { loadEnv, modbusHost } from './config.js';
 import { Controller } from './control/controller.js';
 import { CollectorMetrics } from './metrics.js';
+import { LoadShedder } from './loadshed/shedder.js';
 import { MqttPublisher } from './mqtt/publisher.js';
 import { Notifier } from './notify/notifier.js';
 
@@ -131,7 +132,15 @@ const mqtt = env.MQTT_URL
   : null;
 mqtt?.start();
 
+const shedder = new LoadShedder({
+  getSettings: () => settings,
+  log: log.child({ component: 'loadshed' }),
+  record: (kind, message, data) => addEvent(db, kind, message, data),
+  mqttSend: mqtt ? (topic, payload, retain) => mqtt.send(topic, payload, retain) : null,
+});
+
 const collector: Collector = new Collector({
+  shedder,
   ...(mqtt ? { mqtt } : {}),
   metrics,
   controller,
@@ -191,6 +200,7 @@ async function shutdown(signal: string) {
   health.close();
   clearInterval(watchdog);
   await collector.stop();
+  await shedder.restoreAll().catch(() => {});
   await controller.close();
   await mqtt?.stop().catch(() => {});
   await sql.end({ timeout: 5 });

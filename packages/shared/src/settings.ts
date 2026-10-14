@@ -78,6 +78,42 @@ export const notificationsSchema = z.object({
     .max(24 * 60),
 });
 
+/** One action of a load-shedding hook. */
+export const hookActionSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('webhook'),
+    url: z.string().url(),
+    method: z.enum(['GET', 'POST', 'PUT']),
+    /** request body (JSON or text), optional */
+    body: z.string().max(5_000).optional(),
+  }),
+  z.object({
+    type: z.literal('mqtt'),
+    topic: z.string().min(1).max(500),
+    payload: z.string().max(5_000),
+    retain: z.boolean(),
+  }),
+]);
+
+/** A flexible load (wallbox, heat pump, …) that is shed before the battery is used. */
+export const loadShedRuleSchema = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().min(1).max(100),
+  enabled: z.boolean(),
+  /** shed at projected ≥ triggerRatio × target */
+  triggerRatio: z.number().min(0.5).max(1.2),
+  /** restore at projected < releaseRatio × target */
+  releaseRatio: z.number().min(0.3).max(1.2),
+  minOnMinutes: z.number().min(0).max(120),
+  maxOnMinutes: z
+    .number()
+    .min(1)
+    .max(24 * 60),
+  minOffMinutes: z.number().min(0).max(120),
+  shed: hookActionSchema,
+  restore: hookActionSchema,
+});
+
 /**
  * User-editable runtime settings (stored in the database, edited in the UI).
  * Deployment settings (hosts, ports, secrets) live in the environment instead.
@@ -95,6 +131,7 @@ export const settingsSchema = z.object({
   battery: batterySchema,
   control: controlSchema,
   notifications: notificationsSchema,
+  loadShedding: z.array(loadShedRuleSchema).max(10),
 });
 
 export type Tariff = z.infer<typeof tariffSchema>;
@@ -103,6 +140,8 @@ export type ControlSettings = z.infer<typeof controlSchema>;
 export type ControlModeName = z.infer<typeof controlModeSchema>;
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 export type NotificationSettings = z.infer<typeof notificationsSchema>;
+export type HookAction = z.infer<typeof hookActionSchema>;
+export type LoadShedRuleSettings = z.infer<typeof loadShedRuleSchema>;
 export type Settings = z.infer<typeof settingsSchema>;
 export const settingsPatchSchema = settingsSchema.partial();
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;

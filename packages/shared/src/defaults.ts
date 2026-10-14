@@ -29,4 +29,5 @@ export const DEFAULT_SETTINGS: Settings = {
     },
     cooldownMinutes: 15,
   },
+  loadShedding: [],
 };

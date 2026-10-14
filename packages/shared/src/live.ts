@@ -38,6 +38,8 @@ export const liveSnapshotSchema = z.object({
   monthCostEur: z.number(),
   /** Extra monthly cost if the projected value became the new month peak (€). */
   projectedExtraCostEur: z.number(),
+  /** Names of load-shedding hooks currently shedding. */
+  shed: z.array(z.string()).optional(),
   /** Peak-shaving controller state (absent when the collector runs without it). */
   control: z
     .object({

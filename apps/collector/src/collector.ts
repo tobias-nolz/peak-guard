@@ -29,6 +29,7 @@ import type { Logger } from 'pino';
 import type { CollectorEnv } from './config.js';
 import { DuplicateTimestampDetector } from './clock-check.js';
 import type { Controller } from './control/controller.js';
+import type { LoadShedder } from './loadshed/shedder.js';
 import type { MqttPublisher } from './mqtt/publisher.js';
 import type { Notifier } from './notify/notifier.js';
 import type { CollectorMetrics } from './metrics.js';
@@ -45,6 +46,7 @@ export interface CollectorDeps {
   controller?: Controller;
   notifier?: Notifier;
   mqtt?: MqttPublisher;
+  shedder?: LoadShedder;
   now?: () => number;
 }
 
@@ -403,7 +405,9 @@ export class Collector {
       timeZone: this.deps.env.TIME_ZONE,
       control: this.deps.controller?.snapshotPart(),
     });
+    if (this.deps.shedder) snap.shed = this.deps.shedder.active;
     this.lastSnapshot = snap;
+    if (snap.connection === 'ok') void this.deps.shedder?.evaluate(snap);
     this.deps.mqtt?.publish(snap);
     // Warn once per quarter-hour when the projection nears/exceeds the limit (after 3 min,
     // when the projection is meaningful).

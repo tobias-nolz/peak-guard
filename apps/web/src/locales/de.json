@@ -360,5 +360,28 @@
     "cooldown": "Mindestabstand gleichartiger Meldungen (Minuten)",
     "test": "Test senden",
     "sent": "Test gesendet"
+  },
+  "shed": {
+    "title": "Lastabwurf",
+    "intro": "Flexible Verbraucher (Wallbox, Wärmepumpe, Boiler), die reduziert werden, bevor die Batterie zum Einsatz kommt. Jeder Hook ruft einen Webhook auf oder sendet eine MQTT-Nachricht zum Abwerfen und Wiederherstellen.",
+    "add": "Hook hinzufügen",
+    "remove": "Entfernen",
+    "name": "Name",
+    "enabled": "Aktiv",
+    "trigger": "Abwerfen ab (% des Ziels)",
+    "release": "Wiederherstellen unter (% des Ziels)",
+    "minOn": "Min. Dauer (Min)",
+    "maxOn": "Max. Dauer (Min)",
+    "minOff": "Min. Pause (Min)",
+    "shedAction": "Aktion: Abwerfen",
+    "restoreAction": "Aktion: Wiederherstellen",
+    "type": "Typ",
+    "url": "URL",
+    "method": "Methode",
+    "body": "Body (optional)",
+    "topic": "Topic",
+    "payload": "Payload",
+    "retain": "Retain",
+    "active": "Lastabwurf aktiv: {{names}}"
   }
 }

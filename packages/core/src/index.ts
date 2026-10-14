@@ -6,3 +6,4 @@ export * from './analytics.js';
 export * from './causes.js';
 export * from './control.js';
 export * from './simulate.js';
+export * from './loadshed.js';

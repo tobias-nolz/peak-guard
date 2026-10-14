@@ -360,5 +360,28 @@
     "cooldown": "Minimum minutes between notifications of the same kind",
     "test": "Send test",
     "sent": "Test sent"
+  },
+  "shed": {
+    "title": "Load shedding",
+    "intro": "Flexible loads (wallbox, heat pump, boiler) that are reduced before the battery is used. Each hook calls a webhook or publishes an MQTT message to shed and to restore the load.",
+    "add": "Add hook",
+    "remove": "Remove",
+    "name": "Name",
+    "enabled": "Enabled",
+    "trigger": "Shed at (% of target)",
+    "release": "Restore below (% of target)",
+    "minOn": "Min. on (min)",
+    "maxOn": "Max. on (min)",
+    "minOff": "Min. off (min)",
+    "shedAction": "Shed action",
+    "restoreAction": "Restore action",
+    "type": "Type",
+    "url": "URL",
+    "method": "Method",
+    "body": "Body (optional)",
+    "topic": "Topic",
+    "payload": "Payload",
+    "retain": "Retain",
+    "active": "Load shedding active: {{names}}"
   }
 }
