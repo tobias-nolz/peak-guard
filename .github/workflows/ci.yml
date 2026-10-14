@@ -67,6 +67,12 @@ jobs:
           AUTH_USERNAME=e2e
           AUTH_PASSWORD=e2e-password-123
           AUTH_SECRET=ci-secret-ci-secret-ci-secret-ci-secret
+          # control e2e: Modbus against the mock (the only device CI ever writes to)
+          MODBUS_ENABLED=true
+          MODBUS_HOST=mock-inverter
+          MODBUS_PORT=1502
+          MODBUS_POLL_MS=1000
+          CONTROL_WRITES_ENABLED=true
           EOF
           docker compose --profile dev build
           docker compose up -d --wait db

@@ -57,6 +57,31 @@ Sources:
 - [batpred discussion #3439](https://github.com/springfall2008/batpred/discussions/3439)
 - [knackerbrot/fronius-modbus-control](https://github.com/knackerbrot/fronius-modbus-control)
 
+## Enabling battery control: checklist
+
+Work through these steps in order. Each one can be undone, and nothing is written to the inverter before step 6.
+
+1. **Solar API on, data looks right.** Live values match the Fronius app, and quarter-hours close as `exact`.
+2. **Enable Modbus on the Gen24.** In the web UI (technician access may be required), go to _Communication → Modbus_:
+   - Set the **Modbus TCP server** to _on_, port 502.
+   - Set **SunSpec Model Type** to _int + SF_. Peak Guard discovers the layout either way.
+   - Switch **Inverter control via Modbus** on.
+   - Leave "Restrict control" off, unless you want to restrict control to Peak Guard's IP address. In that case, enter the address of the Docker host.
+3. **Let Peak Guard read the battery.** In `.env`, set `MODBUS_ENABLED=true` and keep `CONTROL_WRITES_ENABLED=false`. Then run `docker compose up -d`. Control → Status should show _Modbus connected_, plus the battery's max power, SoC, limit mode 0 and discharge limit 100 %.
+4. **Dry-run for a while (days to weeks).** Control → mode _Dry-run_ (the default). Check that the decision log looks sensible: _Holding the reserve_ when SoC ≤ reserve, _Shaving_ only when a quarter-hour would exceed the target. The dry-run estimate shows the expected saving.
+5. **Choose threshold and reserve with the simulation** (Simulation page), using your own history.
+6. **Allow writes.** Set `CONTROL_WRITES_ENABLED=true`, then `docker compose up -d collector`.
+7. **Run the revert self-test** (Control page). It writes a discharge limit of 100 %, which has no effect on the battery, with a 60 s revert timeout. Then it only _reads_, to see whether the inverter returns to its own mode by itself.
+   - **Passed:** if Peak Guard stops or loses the connection, the inverter drops the limits after the revert timeout.
+   - **Failed:** the firmware ignores the storage revert timer. Peak Guard restored the defaults itself. You can still enable Active after acknowledging the warning, but then the app-side watchdog is the only safety net. Setpoints are benign by design (discharge limits only), so a stuck setpoint can only _reduce_ battery use, never force charging or discharging. A Fronius firmware update may change this, so re-run the test after updates.
+8. **Switch to Active** (Control page). Watch the decision chart and the inverter's battery status for the first evenings.
+
+**Rollback at any time:**
+
+- Control → _Dry-run_ or _Off_. The collector restores the inverter defaults (`StorCtl_Mod = 0`).
+- `CONTROL_WRITES_ENABLED=false`, then `docker compose up -d collector`.
+- In the Gen24 web UI, switch _Inverter control via Modbus_ off. Some firmware versions also offer a button that resets the Modbus API controls.
+
 ## Open questions for your installation
 
 - Inverter IP and Gen24 firmware version
