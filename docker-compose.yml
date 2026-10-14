@@ -134,5 +134,34 @@ services:
       timeout: 5s
       retries: 3
 
+  backup:
+    image: timescale/timescaledb:2.30.2-pg18
+    profiles: [backup]
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    entrypoint: ['/bin/sh', '/backup.sh']
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-peakguard}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-peakguard}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - ${BACKUP_DIR:-backups}:/backups
+    healthcheck:
+      # healthy while a dump newer than 2 intervals exists (first one is written on start)
+      test:
+        [
+          'CMD-SHELL',
+          'test -n "$$(find /backups -name ''peakguard-*.dump'' -mmin -$$((BACKUP_INTERVAL_HOURS * 120)))"',
+        ]
+      interval: 5m
+      timeout: 10s
+      start_period: 10m
+
 volumes:
   db-data:
+  backups:

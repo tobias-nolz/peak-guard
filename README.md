@@ -4,8 +4,19 @@ Self-hosted monitoring of 15-minute grid peaks for a Fronius Gen24 + Smart Meter
 
 From 2027, Austrian grid operators (here: Netz NÖ) bill a **capacity charge (Leistungspreis)** on the highest 15-minute average grid import of each month. One bad quarter-hour sets the price for the whole month. Peak Guard measures every clock-aligned quarter-hour the way the billing meter does and shows the current interval's projection live. It also tells you what the month's peak costs.
 
-> **Status:** Phase 1 in progress (milestones M0–M3 done: data pipeline, live UI, settings).
-> History analytics, reconciliation and peak-shaving control follow. See [Roadmap](#roadmap).
+> **Status:** Phase 1 (monitoring) is complete. Phase 2 (simulation and battery-based peak shaving) is in progress. See [Roadmap](#roadmap).
+
+## Features
+
+- **Live:** the current quarter-hour with energy so far, running average and projection against the limit and the month's peak; power-flow diagram (grid, PV, battery, house); capacity charge and the extra cost if the projection becomes the new peak.
+- **History:**
+  - Time series (today / 7 days / month / custom) with 15-minute steps.
+  - Monthly view with daily peaks and the top-10 quarter-hours with _likely causes_.
+  - Weekday × hour heatmap, histogram and duration curve.
+  - Year overview with a month comparison.
+  - CSV/JSON exports.
+- **Reconciliation:** import the Netz NÖ smart-meter CSV, compare it with your own measurement and apply a calibration factor. The month view then shows the billed peak.
+- **Operations:** login (password or auth proxy), audit log, Prometheus metrics, scheduled backups with a tested restore, gap handling and backfill from meter counters.
 
 ## Quickstart (with the built-in mock inverter)
 
@@ -68,6 +79,7 @@ Fronius Gen24 ──HTTP (Solar API v1)──▶ collector ──▶ TimescaleDB
 | `web`           | React SPA served by Caddy, which also proxies `/api`. PWA-installable, dark mode, German/English.                                                                                                                          |
 | `db`            | PostgreSQL 18 + TimescaleDB. Raw samples (hypertable, compressed after 2 days, kept 90 days), a 1-minute continuous aggregate (2 years) and the quarter-hour table (forever).                                              |
 | `mock-inverter` | `dev` profile only. Speaks Solar API v1 like a Gen24, with time acceleration and fault injection.                                                                                                                          |
+| `backup`        | `backup` profile only. Daily `pg_dump` with retention; restore with `docker/restore.sh`.                                                                                                                                   |
 
 Monorepo layout (pnpm workspaces, TypeScript strict):
 
@@ -89,7 +101,7 @@ Design decisions that deviate from the original brief:
 
 ## Configuration
 
-All deployment settings are in `.env` (see [.env.example](.env.example), which documents every variable). Settings that can change at runtime are edited in the UI and stored in the database:
+All deployment settings are in `.env` (see [.env.example](.env.example), which documents every variable). Authentication, reverse proxies (incl. Traefik), backups, monitoring and upgrades are covered in [docs/operations.md](docs/operations.md). Settings that can change at runtime are edited in the UI and stored in the database:
 
 - threshold
 - warning level
@@ -128,22 +140,23 @@ Internal packages export their TypeScript sources under the custom condition `@p
 
 ## Troubleshooting
 
-| Symptom                                   | Check                                                                                        |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Badge shows "Inverter offline"            | Can the host reach `FRONIUS_URL`? Is the Solar API enabled? `docker compose logs collector`  |
-| Intervals marked `estimated`              | A data gap occurred (see events / collector logs). The energy comes from the meter counters. |
-| Log warning "inverter repeats timestamps" | `CLOCK_SOURCE=inverter` is only for the accelerated mock. Use `local` with a real inverter.  |
-| No live updates, but the page loads       | A reverse proxy in front of Caddy must not buffer `text/event-stream`                        |
-| `db` won't start after an upgrade         | The PostgreSQL major version changed. Restore from a dump (backup tooling arrives in M5).    |
+| Symptom                                   | Check                                                                                                                         |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Badge shows "Inverter offline"            | Can the host reach `FRONIUS_URL`? Is the Solar API enabled? `docker compose logs collector`                                   |
+| Intervals marked `estimated`              | A data gap occurred (see events / collector logs). The energy comes from the meter counters.                                  |
+| Log warning "inverter repeats timestamps" | `CLOCK_SOURCE=inverter` is only for the accelerated mock. Use `local` with a real inverter.                                   |
+| No live updates, but the page loads       | A reverse proxy in front of Caddy must not buffer `text/event-stream`                                                         |
+| `db` won't start after an upgrade         | The PostgreSQL major version changed. Restore from a dump (see [docs/operations.md](docs/operations.md#backups-and-restore)). |
+| Redirect loop to `/login`                 | `AUTH_SECRET` changed or cookies are blocked. Behind HTTPS, check that the proxy sends `X-Forwarded-Proto`.                   |
 
 ## Roadmap
 
 | Milestone | Scope                                                                                               | Status |
 | --------- | --------------------------------------------------------------------------------------------------- | ------ |
 | M0–M3     | Scaffold, mock inverter, collector + interval maths, API, live UI, settings, CI                     | ✅     |
-| M4        | History: ranges, monthly view, top-N with likely cause, heatmap, histogram, duration curve, exports | next   |
-| M5        | Netz NÖ CSV import + calibration, auth, audit view, backups, metrics, docs                          |        |
-| M6        | What-if simulation of thresholds / reserves / battery sizes                                         |        |
+| M4        | History: ranges, monthly view, top-N with likely cause, heatmap, histogram, duration curve, exports | ✅     |
+| M5        | Netz NÖ CSV import + calibration, auth, audit view, backups, metrics, docs                          | ✅     |
+| M6        | What-if simulation of thresholds / reserves / battery sizes                                         | next   |
 | M7        | Modbus/SunSpec readout, dry-run controller, hardware checklist, revert self-test                    |        |
 | M8        | Active peak shaving (gated, fail-benign setpoints only)                                             |        |
 | M9        | Notifications, MQTT + Home Assistant, load-shedding hooks, time-variable grid fees                  |        |
