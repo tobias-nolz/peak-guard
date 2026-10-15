@@ -23,6 +23,12 @@ test.describe.serial('control', () => {
       { timeout: 20_000 },
     );
     await expect(page.getByTestId('mode-badge')).toHaveText('Dry-run');
+    // the decision's limit is clearly marked as not written in dry-run
+    await expect(page.getByTestId('status-mode')).toHaveText('Dry-run');
+    await expect(status).toContainText('Inverter (read via Modbus)');
+    await expect(page.getByTestId('wanted-limit')).toContainText(
+      'Dry-run: not written to the inverter',
+    );
   });
 
   test('Active is gated on the revert self-test, which passes on the mock', async ({
@@ -51,6 +57,8 @@ test.describe.serial('control', () => {
     await expect(page.getByTestId('control-applying')).toHaveText('Limits applied', {
       timeout: 20_000,
     });
+    await expect(page.getByTestId('status-mode')).toHaveText('Active');
+    await expect(page.getByTestId('wanted-limit')).not.toContainText('not written');
 
     // pause hands control back to the inverter, resume takes it again
     await page.getByTestId('pause-30').click();

@@ -295,8 +295,8 @@
     "storage": "Battery (SunSpec model 124)",
     "wChaMax": "Max. power",
     "soc": "SoC",
-    "storCtlMod": "Limit mode",
-    "outWRte": "Discharge limit",
+    "storCtlMod": "Limit mode (0 = inverter decides)",
+    "outWRte": "Discharge limit (inverter)",
     "revert": "Revert timeout",
     "chaSt": "State",
     "decision": "Current decision",
@@ -307,7 +307,7 @@
       "empty": "Battery empty"
     },
     "target": "Target",
-    "limit": "Discharge limit",
+    "limit": "Wanted discharge limit",
     "required": "Needed",
     "noLimit": "none",
     "revertTest": "Revert self-test",
@@ -346,7 +346,10 @@
     "pause30": "Pause 30 min",
     "pause120": "Pause 2 h",
     "resume": "Resume",
-    "pauseHint": "While paused, the inverter runs its own self-consumption mode."
+    "pauseHint": "While paused, the inverter runs its own self-consumption mode.",
+    "inverterSection": "Inverter (read via Modbus)",
+    "decisionSection": "Peak Guard",
+    "notWritten": "{{mode}}: not written to the inverter"
   },
   "notify": {
     "title": "Notifications",

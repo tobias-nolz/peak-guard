@@ -102,12 +102,22 @@ function StatusCard({ data }: { data: ControlStatusDto }) {
       <span className="text-right tabular-nums">{value}</span>
     </div>
   );
+  const section = (label: string) => (
+    <div className="pt-3 pb-1 text-xs font-medium tracking-wide uppercase">{label}</div>
+  );
+  const mode = data.settings.mode;
   return (
     <Card>
       <CardHeader>
         <CardTitle>{t('control.status')}</CardTitle>
       </CardHeader>
       <CardContent className="divide-y text-sm" data-testid="control-status">
+        {row(
+          t('control.mode'),
+          <Badge variant={mode === 'active' ? 'warning' : 'secondary'} data-testid="status-mode">
+            {t(`control.modes.${mode}`)}
+          </Badge>,
+        )}
         {row(
           t('control.writes'),
           <Badge variant={s?.writesEnabled ? 'warning' : 'secondary'}>
@@ -128,6 +138,7 @@ function StatusCard({ data }: { data: ControlStatusDto }) {
         {s?.modbus.error && row('', <span className="text-destructive">{s.modbus.error}</span>)}
         {st && (
           <>
+            {section(t('control.inverterSection'))}
             {row(t('control.wChaMax'), fmtW(st.wChaMaxW))}
             {row(
               t('control.soc'),
@@ -142,7 +153,8 @@ function StatusCard({ data }: { data: ControlStatusDto }) {
             {row(t('control.chaSt'), st.chaSt ?? '–')}
           </>
         )}
-        {data.settings.mode === 'active' &&
+        {section(t('control.decisionSection'))}
+        {mode === 'active' &&
           row(
             t('control.applying'),
             <Badge variant={s?.applying ? 'safe' : 'secondary'} data-testid="control-applying">
@@ -161,7 +173,17 @@ function StatusCard({ data }: { data: ControlStatusDto }) {
         )}
         {c?.decision && row(t('control.target'), fmtKw(c.targetKw, 1))}
         {c?.decision &&
-          row(t('control.limit'), c.limitW == null ? t('control.noLimit') : fmtW(c.limitW))}
+          row(
+            t('control.limit'),
+            <span data-testid="wanted-limit">
+              {c.limitW == null ? t('control.noLimit') : fmtW(c.limitW)}
+              {mode !== 'active' && (
+                <span className="text-muted-foreground block text-xs">
+                  {t('control.notWritten', { mode: t(`control.modes.${mode}`) })}
+                </span>
+              )}
+            </span>,
+          )}
         {(s?.note ?? c?.note) &&
           row(t('control.note'), <span className="text-warning">{s?.note ?? c?.note}</span>)}
       </CardContent>

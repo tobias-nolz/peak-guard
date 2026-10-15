@@ -295,8 +295,8 @@
     "storage": "Batterie (SunSpec-Modell 124)",
     "wChaMax": "Max. Leistung",
     "soc": "SoC",
-    "storCtlMod": "Limit-Modus",
-    "outWRte": "Entladelimit",
+    "storCtlMod": "Limit-Modus (0 = Wechselrichter entscheidet)",
+    "outWRte": "Entladelimit (Wechselrichter)",
     "revert": "Rückfall-Timeout",
     "chaSt": "Zustand",
     "decision": "Aktuelle Entscheidung",
@@ -307,7 +307,7 @@
       "empty": "Batterie leer"
     },
     "target": "Ziel",
-    "limit": "Entladelimit",
+    "limit": "Gewünschtes Entladelimit",
     "required": "Benötigt",
     "noLimit": "keins",
     "revertTest": "Rückfall-Selbsttest",
@@ -346,7 +346,10 @@
     "pause30": "30 Min pausieren",
     "pause120": "2 Std pausieren",
     "resume": "Fortsetzen",
-    "pauseHint": "Während der Pause läuft der Wechselrichter in seinem eigenen Eigenverbrauchsmodus."
+    "pauseHint": "Während der Pause läuft der Wechselrichter in seinem eigenen Eigenverbrauchsmodus.",
+    "inverterSection": "Wechselrichter (über Modbus gelesen)",
+    "decisionSection": "Peak Guard",
+    "notWritten": "{{mode}}: nicht an den Wechselrichter geschrieben"
   },
   "notify": {
     "title": "Benachrichtigungen",
