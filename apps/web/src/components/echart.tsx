@@ -51,10 +51,16 @@ export function EChart({
   option,
   className,
   onEvents,
+  live = false,
 }: {
   option: EChartsCoreOption;
   className?: string;
   onEvents?: EChartEventHandlers;
+  /**
+   * Frequently updated chart: merge new options instead of rebuilding, so an open
+   * tooltip survives the update (the structure must stay the same between updates).
+   */
+  live?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
@@ -82,8 +88,11 @@ export function EChart({
   }, [dark]);
 
   useEffect(() => {
-    chart.current?.setOption({ backgroundColor: 'transparent', ...option }, { notMerge: true });
-  }, [option, dark]);
+    chart.current?.setOption(
+      { backgroundColor: 'transparent', ...option },
+      live ? { replaceMerge: ['series'] } : { notMerge: true },
+    );
+  }, [option, dark, live]);
 
   return <div ref={ref} className={cn('h-64 w-full', className)} />;
 }

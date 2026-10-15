@@ -170,6 +170,7 @@ function TodayCard({ snap, className }: { snap: LiveSnapshot; className?: string
     refetchInterval: 60_000,
   });
 
+  const current = snap.interval.start;
   const option = useMemo(() => {
     const c = chartColors(dark);
     const limit = snap.effectiveLimitKw;
@@ -180,7 +181,7 @@ function TodayCard({ snap, className }: { snap: LiveSnapshot; className?: string
     for (let ts = dayStart; ts < dayEnd; ts += INTERVAL_MS) slots.push(ts);
     const byStart = new Map((data ?? []).map((i) => [i.start, i]));
     const bars = slots.map((ts) => {
-      if (ts === snap.interval.start) {
+      if (ts === current) {
         const kw = snap.interval.projectedKw;
         return { value: kw, itemStyle: { color: color(kw), opacity: 0.4 } };
       }
@@ -211,8 +212,17 @@ function TodayCard({ snap, className }: { snap: LiveSnapshot; className?: string
       grid: { left: 40, right: 16, top: 16, bottom: 28 },
       tooltip: {
         trigger: 'axis',
-        valueFormatter: (v: number | null) => fmtKw(v),
         axisPointer: { type: 'shadow' },
+        // The category value is the slot's start (epoch ms): show "18:15 – 18:30" instead.
+        formatter: (params: { axisValue: string; marker: string; value: number | null }[]) => {
+          const p = params[0];
+          if (!p) return '';
+          const start = Number(p.axisValue);
+          const slot = `${fmtTime(start)} – ${fmtTime(start + INTERVAL_MS)}`;
+          if (p.value == null) return slot; // later today, or no data
+          const label = start === current ? `${t('live.projected')}: ` : '';
+          return `${slot}<br/>${p.marker}${label}${fmtKw(p.value)}`;
+        },
       },
       xAxis: {
         type: 'category',
@@ -238,7 +248,7 @@ function TodayCard({ snap, className }: { snap: LiveSnapshot; className?: string
     };
   }, [
     data,
-    snap.interval.start,
+    current,
     snap.interval.projectedKw,
     snap.effectiveLimitKw,
     snap.monthPeak,
@@ -248,12 +258,12 @@ function TodayCard({ snap, className }: { snap: LiveSnapshot; className?: string
   ]);
 
   return (
-    <Card className={className}>
+    <Card className={className} data-testid="today-card">
       <CardHeader>
         <CardTitle>{t('live.today')}</CardTitle>
       </CardHeader>
       <CardContent>
-        <EChart option={option} className="h-56" />
+        <EChart option={option} className="h-56" live />
       </CardContent>
     </Card>
   );
