@@ -70,9 +70,9 @@
       "reconciliation": "Reconciliation"
     },
     "range": {
-      "today": "Today",
+      "today": "Day",
       "week": "7 days",
-      "month": "This month",
+      "month": "Calendar month",
       "custom": "Custom",
       "from": "From",
       "to": "To"

@@ -12,6 +12,12 @@ import { monthOf, useNow } from '@/lib/time';
 export const historySearchSchema = z.object({
   tab: z.enum(['timeline', 'month', 'analysis', 'year', 'reconciliation']).catch('timeline'),
   range: z.enum(['today', 'week', 'month', 'custom']).catch('today'),
+  /** Time series: the (last) day shown; defaults to today. */
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .catch(undefined),
   month: z
     .string()
     .regex(/^\d{4}-\d{2}$/)
@@ -43,7 +49,12 @@ export function HistoryPage() {
           ))}
         </TabsList>
         <TabsContent value="timeline">
-          <Timeline kind={search.range} onKind={(range) => set({ range })} />
+          <Timeline
+            kind={search.range}
+            onKind={(range) => set({ range })}
+            date={search.date}
+            onDate={(date) => set({ date })}
+          />
         </TabsContent>
         <TabsContent value="month">
           <MonthView month={month} onMonth={(m) => set({ month: m })} />

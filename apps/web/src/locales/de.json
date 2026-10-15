@@ -70,9 +70,9 @@
       "reconciliation": "Abgleich"
     },
     "range": {
-      "today": "Heute",
+      "today": "Tag",
       "week": "7 Tage",
-      "month": "Dieser Monat",
+      "month": "Kalendermonat",
       "custom": "Benutzerdefiniert",
       "from": "Von",
       "to": "Bis"

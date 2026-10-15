@@ -39,3 +39,14 @@ export function useNow(): number {
   const [now] = useState(() => Date.now());
   return now;
 }
+
+/** "YYYY-MM-DD" shifted by whole calendar days. */
+export function addDays(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** Last calendar day ("YYYY-MM-DD") of a "YYYY-MM" month. */
+export function lastDayOfMonth(month: string): string {
+  return addDays(`${shiftMonth(month, 1)}-01`, -1);
+}

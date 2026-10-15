@@ -1,45 +1,152 @@
 import { useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { INTERVAL_MS, activeFeeWindow } from '@peak-guard/core';
 import { EChart, chartColors } from '@/components/echart';
 import { ExportLinks } from '@/components/month-picker';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { exportUrl, intervalsQuery, monthQuery, seriesQuery, settingsQuery } from '@/lib/api';
-import { fmtDate, fmtKw, fmtTime } from '@/lib/format';
+import { fmtDate, fmtDateTime, fmtKw, fmtMonth, fmtNumber, fmtTime } from '@/lib/format';
 import { useTheme } from '@/lib/theme';
-import { dateOf, dateToEpoch, monthBounds, monthOf, useNow } from '@/lib/time';
+import {
+  addDays,
+  dateOf,
+  dateToEpoch,
+  lastDayOfMonth,
+  monthBounds,
+  monthOf,
+  shiftMonth,
+  useNow,
+} from '@/lib/time';
 
+/** 'today' is a single day (any day, despite the name kept for old URLs). */
 export type RangeKind = 'today' | 'week' | 'month' | 'custom';
+type DateRange = { from: string; to: string };
 
-export function resolveRange(kind: RangeKind, now: number, custom: { from: string; to: string }) {
-  const today = dateToEpoch(dateOf(now));
+/** Epoch range for a kind anchored at `date` (the last day shown), never past `now`. */
+export function resolveRange(kind: RangeKind, date: string, now: number, custom: DateRange) {
+  const endOf = (d: string) => dateToEpoch(addDays(d, 1));
   switch (kind) {
     case 'today':
-      return { from: today, to: today + 86_400_000 + 3_600_000 };
+      return { from: dateToEpoch(date), to: endOf(date) };
     case 'week':
-      return { from: dateToEpoch(dateOf(now - 6 * 86_400_000)), to: now };
-    case 'month':
-      return { from: monthBounds(monthOf(now)).from, to: now };
+      return { from: dateToEpoch(addDays(date, -6)), to: Math.min(endOf(date), now) };
+    case 'month': {
+      const b = monthBounds(date.slice(0, 7));
+      return { from: b.from, to: Math.min(b.to, now) };
+    }
     case 'custom': {
       const from = dateToEpoch(custom.from);
-      const to = dateToEpoch(custom.to) + 86_400_000;
-      return to > from ? { from, to } : { from, to: from + 86_400_000 };
+      const to = endOf(custom.to);
+      return to > from ? { from, to } : { from, to: endOf(custom.from) };
     }
   }
 }
 
-export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeKind) => void }) {
+/** Anchor date one step (day, 7 days, month) earlier or later, clamped to today. */
+function stepDate(kind: Exclude<RangeKind, 'custom'>, date: string, dir: -1 | 1, today: string) {
+  const next =
+    kind === 'today'
+      ? addDays(date, dir)
+      : kind === 'week'
+        ? addDays(date, 7 * dir)
+        : lastDayOfMonth(shiftMonth(date.slice(0, 7), dir));
+  return next > today ? today : next;
+}
+
+const SERIES = ['grid', 'quarterHours', 'load', 'pv', 'battery', 'soc'] as const;
+type SeriesId = (typeof SERIES)[number];
+type Selection = Record<SeriesId, boolean>;
+const SELECTION_KEY = 'peak-guard.history.series';
+
+/** Series shown in the chart: all by default, the viewer's last choice if stored. */
+function loadSelection(): Selection {
+  const sel = Object.fromEntries(SERIES.map((s) => [s, true])) as Selection;
+  try {
+    const stored = JSON.parse(localStorage.getItem(SELECTION_KEY) ?? 'null') as unknown;
+    if (stored && typeof stored === 'object') {
+      for (const s of SERIES) {
+        const v = (stored as Record<string, unknown>)[s];
+        if (typeof v === 'boolean') sel[s] = v;
+      }
+    }
+  } catch {
+    // storage unavailable or corrupt: defaults
+  }
+  return sel;
+}
+
+function saveSelection(sel: Selection) {
+  try {
+    localStorage.setItem(SELECTION_KEY, JSON.stringify(sel));
+  } catch {
+    // storage unavailable: the choice lasts for this page view only
+  }
+}
+
+interface TooltipParam {
+  seriesId?: string;
+  seriesName?: string;
+  marker?: string;
+  axisValue?: number | string;
+  value?: [number, number | null];
+}
+
+const dot = (color: string) =>
+  `<span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:${color}"></span>`;
+
+export function Timeline({
+  kind,
+  onKind,
+  date: dateParam,
+  onDate,
+}: {
+  kind: RangeKind;
+  onKind: (k: RangeKind) => void;
+  date: string | undefined;
+  onDate: (date: string | undefined) => void;
+}) {
   const { t } = useTranslation();
   const { dark } = useTheme();
   const now = useNow();
+  const today = dateOf(now);
+  const date = dateParam && dateParam < today ? dateParam : today;
   const [custom, setCustom] = useState(() => ({
     from: dateOf(now - 2 * 86_400_000),
-    to: dateOf(now),
+    to: today,
   }));
-  const { from, to } = resolveRange(kind, now, custom);
+  const [selection, setSelection] = useState(loadSelection);
+  const { from, to } = resolveRange(kind, date, now, custom);
+
+  const canNext =
+    kind === 'custom'
+      ? custom.to < today
+      : kind === 'month'
+        ? date.slice(0, 7) < today.slice(0, 7)
+        : date < today;
+  const step = (dir: -1 | 1) => {
+    if (kind === 'custom') {
+      // shift by the range's own length
+      const days = Math.round((dateToEpoch(custom.to) - dateToEpoch(custom.from)) / 86_400_000) + 1;
+      const next = { from: addDays(custom.from, dir * days), to: addDays(custom.to, dir * days) };
+      if (next.to <= today) setCustom(next);
+      return;
+    }
+    const next = stepDate(kind, date, dir, today);
+    onDate(next === today ? undefined : next);
+  };
+  const rangeLabel =
+    kind === 'today'
+      ? fmtDate(from, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
+      : kind === 'week'
+        ? `${fmtDate(from)} – ${fmtDate(dateToEpoch(date), { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+        : kind === 'month'
+          ? fmtMonth(date.slice(0, 7))
+          : null;
 
   const series = useQuery(seriesQuery(from, to));
   const intervals = useQuery(intervalsQuery(from, to));
@@ -48,6 +155,8 @@ export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeK
 
   const option = useMemo(() => {
     const c = chartColors(dark);
+    const name = (id: SeriesId) => t(`history.${id}`);
+    const byStart = new Map((intervals.data ?? []).map((i) => [i.start, i]));
     const limit = Math.max(
       settings.data?.thresholdKw ?? 0,
       settings.data?.tariffs[0]?.minBilledKw ?? 0,
@@ -73,8 +182,9 @@ export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeK
         label: { formatter: t('history.monthPeak'), position: 'insideEndTop', color: c.text },
       });
     }
-    const line = (name: string, color: string, idx: number, extra: object = {}) => ({
-      name,
+    const line = (id: SeriesId, color: string, idx: number, extra: object = {}) => ({
+      id,
+      name: name(id),
       type: 'line',
       showSymbol: false,
       sampling: 'lttb',
@@ -103,17 +213,34 @@ export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeK
       legend: {
         top: 0,
         textStyle: { color: c.text },
-        selected: {
-          [t('history.load')]: false,
-          [t('history.pv')]: false,
-          [t('history.battery')]: false,
-          [t('history.soc')]: false,
-        },
+        selected: Object.fromEntries(SERIES.map((s) => [name(s), selection[s]])),
       },
       grid: { left: 44, right: 44, top: 36, bottom: 64 },
       tooltip: {
         trigger: 'axis',
-        valueFormatter: (v: number | null) => (v == null ? '–' : fmtKw(v)),
+        // ECharts lists only the series nearest the cursor, which leaves out the 15-min
+        // line (one point per quarter-hour); look the quarter-hour up directly instead.
+        formatter: (raw: TooltipParam | TooltipParam[]) => {
+          const params = Array.isArray(raw) ? raw : [raw];
+          const ts = Number(params[0]?.axisValue ?? params[0]?.value?.[0]);
+          if (!Number.isFinite(ts)) return '';
+          const lines = [fmtDateTime(ts)];
+          if (selection.quarterHours) {
+            const start = Math.floor(ts / INTERVAL_MS) * INTERVAL_MS;
+            const avg = byStart.get(start)?.avgImportKw ?? null;
+            lines.push(
+              `${dot(c.over)}${name('quarterHours')} (${fmtTime(start)} – ${fmtTime(start + INTERVAL_MS)}): <b>${fmtKw(avg)}</b>`,
+            );
+          }
+          for (const p of params) {
+            if (p.seriesId === 'quarterHours') continue;
+            const v = p.value?.[1] ?? null;
+            const text =
+              p.seriesId === 'soc' ? (v == null ? '–' : `${fmtNumber(v, 0)} %`) : fmtKw(v);
+            lines.push(`${p.marker ?? ''}${p.seriesName ?? ''}: <b>${text}</b>`);
+          }
+          return lines.join('<br/>');
+        },
       },
       xAxis: {
         type: 'time',
@@ -145,9 +272,10 @@ export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeK
       ],
       dataZoom: [{ type: 'inside' }, { type: 'slider', height: 20, bottom: 8 }],
       series: [
-        line(t('history.grid'), c.grid, 1, { areaStyle: { opacity: 0.08 } }),
+        line('grid', c.grid, 1, { areaStyle: { opacity: 0.08 } }),
         {
-          name: t('history.quarterHours'),
+          id: 'quarterHours',
+          name: name('quarterHours'),
           type: 'line',
           step: false,
           showSymbol: false,
@@ -162,18 +290,32 @@ export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeK
             data: feeBands,
           },
         },
-        line(t('history.load'), c.house, 2),
-        line(t('history.pv'), c.pv, 3),
-        line(t('history.battery'), c.battery, 4),
+        line('load', c.house, 2),
+        line('pv', c.pv, 3),
+        line('battery', c.battery, 4),
         {
-          ...line(t('history.soc'), c.battery, 5),
+          ...line('soc', c.battery, 5),
           yAxisIndex: 1,
           lineStyle: { width: 1, type: 'dotted' },
           data: pts.map((p) => [p[0], p[5]]),
         },
       ],
     };
-  }, [series.data, intervals.data, settings.data, month.data, dark, from, to, t]);
+  }, [series.data, intervals.data, settings.data, month.data, dark, from, to, t, selection]);
+
+  const onEvents = useMemo(
+    () => ({
+      legendselectchanged: (params: unknown) => {
+        const selected = (params as { selected: Record<string, boolean> }).selected;
+        const next = Object.fromEntries(
+          SERIES.map((s) => [s, selected[t(`history.${s}`)] ?? true]),
+        ) as Selection;
+        setSelection(next);
+        saveSelection(next);
+      },
+    }),
+    [t],
+  );
 
   return (
     <Card>
@@ -189,6 +331,30 @@ export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeK
               ))}
             </TabsList>
           </Tabs>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={t('history.prev')}
+              onClick={() => step(-1)}
+            >
+              <ChevronLeft />
+            </Button>
+            {rangeLabel && (
+              <span className="min-w-36 text-center font-medium" data-testid="range-label">
+                {rangeLabel}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label={t('history.next')}
+              disabled={!canNext}
+              onClick={() => step(1)}
+            >
+              <ChevronRight />
+            </Button>
+          </div>
           {kind === 'custom' && (
             <div className="flex items-center gap-2">
               <Input
@@ -213,7 +379,7 @@ export function Timeline({ kind, onKind }: { kind: RangeKind; onKind: (k: RangeK
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <EChart option={option} className="h-96" />
+        <EChart option={option} className="h-96" onEvents={onEvents} />
         <ExportLinks
           links={[
             {
