@@ -1,8 +1,8 @@
 # Hardware notes: Fronius Gen24, Smart Meter, BYD battery
 
-Research status as of October 2026. Everything marked **verify** must be confirmed on your inverter's firmware before phase 2 control is enabled.
+Research status as of October 2026. Everything marked **verify** must be confirmed on your inverter's firmware before battery control is enabled.
 
-## Read path (phase 1): Solar API v1
+## Read path: Solar API v1
 
 Enable it in the Gen24 web UI under _Communication → Solar API_. It is read only.
 
@@ -14,16 +14,16 @@ Enable it in the Gen24 web UI under _Communication → Solar API_. It is read on
 
 Fronius recommends at most 2 parallel requests and timeouts of at least 1 s. The collector makes 2 requests per poll.
 
-## Control path (phase 2): Modbus TCP, SunSpec model 124
+## Control path: Modbus TCP, SunSpec model 124
 
-Not used yet. These are the prerequisites for M7/M8.
+Only used when `MODBUS_ENABLED=true`. Prerequisites:
 
 - Enable in the web UI under _Communication → Modbus_:
   - **Modbus TCP server**: port 502 (or 1502)
   - **Inverter control via Modbus**: without this, writes to models 123/124 raise exceptions
   - SunSpec data type _int + SF_ or _float_: the register addresses differ between the two
 - Unit ID of the inverter is 1, of the primary meter 200.
-- Model 124 starts at 40343 (int + SF) or 40353 (float) per the Fronius manual. Peak Guard will **discover** the model chain from 40000 (`SunS`) and read the scale factors at runtime instead of hard-coding addresses. Fronius notes that scale factors may change with firmware updates.
+- Model 124 starts at 40343 (int + SF) or 40353 (float) per the Fronius manual. Peak Guard **discovers** the model chain from 40000 (`SunS`) and read the scale factors at runtime instead of hard-coding addresses. Fronius notes that scale factors may change with firmware updates.
 
 Model 124 fields:
 

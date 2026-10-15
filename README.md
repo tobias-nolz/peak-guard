@@ -1,10 +1,10 @@
 # Peak Guard
 
-Self-hosted monitoring of 15-minute grid peaks for a Fronius Gen24 + Smart Meter + battery system. Battery-based peak shaving comes in phase 2.
+Self-hosted monitoring of 15-minute grid peaks for a Fronius Gen24 + Smart Meter + battery system, with optional battery-based peak shaving.
 
 From 2027, Austrian grid operators (here: Netz NÖ) bill a **capacity charge (Leistungspreis)** on the highest 15-minute average grid import of each month. One bad quarter-hour sets the price for the whole month. Peak Guard measures every clock-aligned quarter-hour the way the billing meter does and shows the current interval's projection live. It also tells you what the month's peak costs.
 
-> **Status:** Monitoring, simulation and battery-based peak shaving (dry-run and gated active control) are implemented. Active control has only been tested against the simulated inverter so far. See [Roadmap](#roadmap) and [Battery control: safety](#battery-control-safety).
+> **Status:** Active battery control has only been tested against the simulated inverter so far. See [Battery control: safety](#battery-control-safety).
 
 ## Features
 
@@ -50,7 +50,7 @@ POLL_INTERVAL_MS=100
 2. Set `FRONIUS_URL=http://<inverter-ip>` in `.env` and leave `CLOCK_SOURCE=local`.
 3. `docker compose up -d` (without the `dev` profile).
 
-Phase 1 only _reads_ data. Nothing is ever written to the inverter. Hardware details and the research behind the phase 2 control path are in [docs/hardware.md](docs/hardware.md).
+With this setup Peak Guard only _reads_ data. Nothing is written to the inverter unless you enable Modbus control (see [Battery control: safety](#battery-control-safety)). Hardware details and the research behind the control path are in [docs/hardware.md](docs/hardware.md).
 
 ## How peaks are measured
 
@@ -96,7 +96,7 @@ Monorepo layout (pnpm workspaces, TypeScript strict):
 | `packages/core`    | Pure logic: quarter-hour tracker, time zones/DST, tariff and € maths, peak helpers |
 | `packages/shared`  | Zod schemas: settings, live snapshot                                               |
 | `packages/db`      | Drizzle schema, migrations, TimescaleDB setup, queries                             |
-| `packages/fronius` | Solar API client and response mapping (Modbus/SunSpec follows in M7)               |
+| `packages/fronius` | Solar API client and response mapping, Modbus/SunSpec client (model 124)           |
 | `packages/sim`     | Deterministic household simulator (used by the mock and the tests)                 |
 | `apps/*`           | `collector`, `api`, `web`, `mock-inverter`                                         |
 
@@ -175,15 +175,3 @@ Internal packages export their TypeScript sources under the custom condition `@p
 | No live updates, but the page loads       | A reverse proxy in front of Caddy must not buffer `text/event-stream`                                                         |
 | `db` won't start after an upgrade         | The PostgreSQL major version changed. Restore from a dump (see [docs/operations.md](docs/operations.md#backups-and-restore)). |
 | Redirect loop to `/login`                 | `AUTH_SECRET` changed or cookies are blocked. Behind HTTPS, check that the proxy sends `X-Forwarded-Proto`.                   |
-
-## Roadmap
-
-| Milestone | Scope                                                                                               | Status                                     |
-| --------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| M0–M3     | Scaffold, mock inverter, collector + interval maths, API, live UI, settings, CI                     | ✅                                         |
-| M4        | History: ranges, monthly view, top-N with likely cause, heatmap, histogram, duration curve, exports | ✅                                         |
-| M5        | Netz NÖ CSV import + calibration, auth, audit view, backups, metrics, docs                          | ✅                                         |
-| M6        | What-if simulation of thresholds / reserves / battery sizes                                         | ✅                                         |
-| M7        | Modbus/SunSpec readout, dry-run controller, hardware checklist, revert self-test                    | ✅ (tested against the simulated inverter) |
-| M8        | Active peak shaving (gated, fail-benign setpoints only)                                             | ✅ (tested against the simulated inverter) |
-| M9        | Notifications, MQTT + Home Assistant, load-shedding hooks, time-variable grid fees                  | ✅                                         |

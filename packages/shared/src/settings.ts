@@ -16,7 +16,7 @@ export const tariffSchema = z.object({
     .min(1),
 });
 
-/** Battery parameters (read from the inverter in phase 2; editable until then). */
+/** Battery parameters (used for simulation and when the inverter doesn't report them). */
 export const batterySchema = z.object({
   /** Usable capacity (kWh); null = unknown / no battery. */
   capacityKwh: z.number().min(0).max(1000).nullable(),
@@ -28,7 +28,7 @@ export const batterySchema = z.object({
 
 export const controlModeSchema = z.enum(['off', 'dryRun', 'active']);
 
-/** Peak-shaving controller settings (phase 2). */
+/** Peak-shaving controller settings. */
 export const controlSchema = z.object({
   /** off = monitoring only, dryRun = compute and log decisions without writing, active = write limits */
   mode: controlModeSchema,
