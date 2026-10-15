@@ -33,3 +33,10 @@ export const DEFAULT_SETTINGS: Settings = {
   // Unknown until the 2027 tariffs are published; add windows in Settings.
   gridFeeWindows: [],
 };
+
+/**
+ * Shown wherever the collector's write kill switch blocks control. Compose reads .env
+ * only when a container is created, so `restart` keeps the old value.
+ */
+export const WRITES_DISABLED_MESSAGE =
+  'writes are disabled: the collector runs with CONTROL_WRITES_ENABLED=false. Set it to true in .env, then recreate the collector (`docker compose up -d collector`; `restart` keeps the old value)';

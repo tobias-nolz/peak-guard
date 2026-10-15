@@ -10,7 +10,7 @@ import {
   type StorageCommand,
   type StorageState,
 } from '@peak-guard/fronius';
-import type { LiveSnapshot, Settings } from '@peak-guard/shared';
+import { WRITES_DISABLED_MESSAGE, type LiveSnapshot, type Settings } from '@peak-guard/shared';
 import type { Logger } from 'pino';
 import type { Notification } from '../notify/notifier.js';
 import { commandFor, significantChange } from './mapping.js';
@@ -211,7 +211,7 @@ export class Controller {
 
   /** Why active control can't write right now (null = it can). */
   private blockedReason(settings: Settings): string | null {
-    if (!this.deps.writesEnabled) return 'writes disabled (CONTROL_WRITES_ENABLED=false)';
+    if (!this.deps.writesEnabled) return WRITES_DISABLED_MESSAGE;
     if (!this.deps.transport) return 'Modbus disabled (MODBUS_ENABLED=false)';
     if (this.modbus !== 'ok' || !this.storage)
       return `Modbus unavailable${this.modbusError ? `: ${this.modbusError}` : ''}`;
@@ -566,8 +566,7 @@ export class Controller {
     };
     this.busy = true;
     if (!t) return finish(result('failed', 'Modbus is disabled (MODBUS_ENABLED=false)'));
-    if (!this.deps.writesEnabled)
-      return finish(result('failed', 'writes are disabled (CONTROL_WRITES_ENABLED=false)'));
+    if (!this.deps.writesEnabled) return finish(result('failed', WRITES_DISABLED_MESSAGE));
 
     await this.refreshStorage(true);
     if (!this.storage || !this.model)

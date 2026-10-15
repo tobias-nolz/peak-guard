@@ -8,7 +8,7 @@ import {
   kvGet,
   saveSettings,
 } from '@peak-guard/db';
-import { controlSchema } from '@peak-guard/shared';
+import { WRITES_DISABLED_MESSAGE, controlSchema } from '@peak-guard/shared';
 import { activeBlockedReason, dryRunEstimate, type ControlStatus } from '../control.js';
 import { SETTINGS_CHANNEL } from '../live-hub.js';
 import { currentMonth, monthRange } from '../month-summary.js';
@@ -76,10 +76,7 @@ export function controlRoutes(app: App, { db, sql, env }: RouteDeps) {
       const s = await status();
       if (!s || Date.now() - s.ts > 60_000)
         return reply.code(409).send({ error: 'collector status unavailable' });
-      if (!s.writesEnabled)
-        return reply
-          .code(409)
-          .send({ error: 'writes are disabled (CONTROL_WRITES_ENABLED=false)' });
+      if (!s.writesEnabled) return reply.code(409).send({ error: WRITES_DISABLED_MESSAGE });
       if (s.modbus.state !== 'ok')
         return reply.code(409).send({ error: `Modbus is not available (${s.modbus.state})` });
       if (s.revertTest?.status === 'running')
