@@ -185,6 +185,8 @@
     "import": "Importieren",
     "importing": "Importiere…",
     "imported": "{{rows}} Viertelstunden importiert ({{from}} – {{to}}), Zeitstempel = {{alignment}}.",
+    "columnUsed": "Verwendete Spalte: {{column}}.",
+    "columnsIgnored": "Nicht verwendet (Aufteilung Energiegemeinschaft u. Ä.): {{columns}}.",
     "batches": "Importierte Dateien",
     "noBatches": "Noch keine Dateien importiert.",
     "delete": "Löschen",

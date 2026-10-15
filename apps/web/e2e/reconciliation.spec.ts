@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-/** Build a portal-style CSV (end-stamped, decimal comma, +3 %) from the stack's own data. */
+/** Build a Netz NÖ-style CSV (end-stamped, decimal comma, +3 %) from the stack's own data. */
 async function portalCsv(request: import('@playwright/test').APIRequestContext) {
   const to = Date.now() - 3_600_000;
   const from = to - 3 * 86_400_000;
@@ -20,11 +20,14 @@ async function portalCsv(request: import('@playwright/test').APIRequestContext) 
     minute: '2-digit',
     hourCycle: 'h23',
   });
-  const lines = ['Messzeitpunkt;Gemessener Verbrauch (kWh)'];
+  const lines = [
+    'Messzeitpunkt;Verbrauch (kWh);Qualität;Restnetzbezug (kWh);Qualität EG;Eigendeckung (kWh);Ideeller Anteil (kWh);Eigendeckung erneuerb. Energie (kWh)',
+  ];
   for (const r of own) {
     if (r.importWh == null || r.quality !== 'exact') continue;
     const end = fmt.format(r.start + 900_000).replace(',', '');
-    lines.push(`${end};${((r.importWh * 1.03) / 1000).toFixed(4).replace('.', ',')}`);
+    const kwh = ((r.importWh * 1.03) / 1000).toFixed(6).replace('.', ',');
+    lines.push(`${end};${kwh};L1;${kwh};L1;0,000000;0,000000;0,000000`);
   }
   return { csv: lines.join('\r\n'), rows: lines.length - 1 };
 }
@@ -44,6 +47,8 @@ test('imports a smart-meter export and applies the suggested calibration', async
   await page.getByRole('button', { name: 'Import' }).click();
   await expect(page.getByRole('status')).toContainText(`Imported ${rows} quarter-hours`);
   await expect(page.getByRole('status')).toContainText('timestamps = Interval end');
+  await expect(page.getByTestId('import-columns')).toContainText('Column used: Verbrauch (kWh)');
+  await expect(page.getByTestId('import-columns')).toContainText('Restnetzbezug (kWh)');
   await expect(page.getByTestId('batches')).toContainText('netz-noe-export.csv');
 
   await expect(page.getByTestId('suggested-factor')).toHaveText(/1[.,]03/);

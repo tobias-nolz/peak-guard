@@ -125,7 +125,7 @@ export interface ImportResultDto {
   from: number;
   to: number;
   alignment: 'start' | 'end';
-  columns: { time: string; value: string; unit: string };
+  columns: { time: string; value: string; unit: string; ignored: string[] };
   warnings: string[];
 }
 

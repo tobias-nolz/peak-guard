@@ -88,4 +88,3 @@ Work through these steps in order. Each one can be undone, and nothing is writte
 - BYD model (HVS/HVM) and usable kWh
 - Smart Meter model and position (feed-in point assumed)
 - Wallbox / heat pump model and API, for load-shedding hooks
-- A sample CSV export from the Netz NÖ smart-meter portal, for reconciliation (M5)

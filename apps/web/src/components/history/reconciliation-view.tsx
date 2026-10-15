@@ -92,6 +92,11 @@ function UploadCard() {
               to: fmtDateTime(r.to),
               alignment: t(`reconciliation.alignmentOpt.${r.alignment}`),
             })}
+            <span className="text-muted-foreground block" data-testid="import-columns">
+              {t('reconciliation.columnUsed', { column: r.columns.value })}
+              {r.columns.ignored.length > 0 &&
+                ' ' + t('reconciliation.columnsIgnored', { columns: r.columns.ignored.join(', ') })}
+            </span>
             {r.warnings.map((w) => (
               <span key={w} className="text-warning block">
                 {w}

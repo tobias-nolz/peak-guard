@@ -205,12 +205,14 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
       const g = (t: string) => p.find((x) => x.type === t)!.value;
       return `${g('day')}.${g('month')}.${g('year')} ${g('hour')}:${g('minute')}`;
     };
-    const lines = ['Messzeitpunkt;Gemessener Verbrauch (kWh)'];
+    // Netz NÖ export format (energy-community member)
+    const lines = [
+      'Messzeitpunkt;Verbrauch (kWh);Qualität;Restnetzbezug (kWh);Qualität EG;Eigendeckung (kWh);Ideeller Anteil (kWh);Eigendeckung erneuerb. Energie (kWh)',
+    ];
     for (let t = JAN; t < JAN + 2 * 86_400_000; t += INTERVAL_MS) {
       const kw = 2 + ((t / INTERVAL_MS) % 5); // varied so the alignment is detectable
-      lines.push(
-        `${fmt(t + INTERVAL_MS)};${String(((kw * 250 * 1.02) / 1000).toFixed(4)).replace('.', ',')}`,
-      );
+      const kwh = ((kw * 250 * 1.02) / 1000).toFixed(6).replace('.', ',');
+      lines.push(`${fmt(t + INTERVAL_MS)};${kwh};L1;${kwh};L1;0,000000;0,000000;0,000000`);
     }
     // own data with the same pattern for those two days
     const mine: ClosedInterval[] = [];

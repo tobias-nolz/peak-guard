@@ -185,6 +185,8 @@
     "import": "Import",
     "importing": "Importing…",
     "imported": "Imported {{rows}} quarter-hours ({{from}} – {{to}}), timestamps = {{alignment}}.",
+    "columnUsed": "Column used: {{column}}.",
+    "columnsIgnored": "Not used (energy-community split etc.): {{columns}}.",
     "batches": "Imported files",
     "noBatches": "No files imported yet.",
     "delete": "Delete",

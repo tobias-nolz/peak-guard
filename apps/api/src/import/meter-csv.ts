@@ -2,9 +2,15 @@ import { DEFAULT_TIME_ZONE, INTERVAL_MS, zonedToEpoch } from '@peak-guard/core';
 
 /**
  * Tolerant parser for smart-meter portal CSV exports (Netz NÖ and similar Austrian
- * portals). The Netz NÖ format isn't publicly documented, so columns are detected from
- * the header: a timestamp (or separate date + time, or from/to columns) and a value in
- * kWh, Wh or kW per quarter-hour.
+ * portals). Columns are detected from the header: a timestamp (or separate date + time,
+ * or from/to columns) and a value in kWh, Wh or kW per quarter-hour.
+ *
+ * Netz NÖ (smartmeter.netz-noe.at) exports end-stamped quarter-hours, e.g. for a member
+ * of an energy community:
+ *   Messzeitpunkt;Verbrauch (kWh);Qualität;Restnetzbezug (kWh);Qualität EG;Eigendeckung (kWh);…
+ *   01.01.2026 00:15;0,513000;L1;0,512990;L1;0,000010;…
+ * "Verbrauch" is the metered grid import; the community columns only split it up for
+ * energy billing, so they're ignored.
  */
 
 export interface MeterRow {
@@ -22,19 +28,24 @@ export interface ParsedMeterCsv {
   rows: MeterRow[];
   /** Known from explicit from/to columns, otherwise null (to be detected). */
   alignment: Alignment | null;
-  columns: { time: string; value: string; unit: 'kWh' | 'Wh' | 'kW' };
+  /** `ignored`: other energy columns (e.g. energy-community splits) that were not used. */
+  columns: { time: string; value: string; unit: 'kWh' | 'Wh' | 'kW'; ignored: string[] };
   skipped: number;
   warnings: string[];
 }
 
+// Short words need boundaries: "Eigendeckung" contains "end", "Anteil" contains "te".
 const TIME_HEADER =
-  /(messzeitpunkt|zeitstempel|timestamp|datum|date|zeit|time|von|bis|from|to|beginn|ende|start|end)/i;
-const FROM_HEADER = /(von|from|beginn|start)/i;
-const TO_HEADER = /(bis|to\b|ende|end)/i;
+  /(messzeitpunkt|zeitstempel|timestamp|datum|date|zeit|time|beginn|\b(von|bis|from|to|ende|end|start)\b)/i;
+const FROM_HEADER = /(beginn|\b(von|from|start)\b)/i;
+const TO_HEADER = /\b(bis|to|ende|end)\b/i;
 const DATE_ONLY_HEADER = /^(datum|date|tag|day)$/i;
 const VALUE_HEADER =
   /(kwh|wh\b|kw\b|verbrauch|bezug|wert|value|energie|energy|consumption|leistung)/i;
 const STATUS_HEADER = /(status|ersatzwert|qualit|quality|flag)/i;
+/** Derived columns of energy-community exports; never the metered import. */
+const DERIVED_HEADER = /(rest|eigendeckung|ideell|anteil|erneuerb|gemeinschaft|community)/i;
+const FEED_IN_HEADER = /(einspeis|feed|export|erzeug|lieferung)/i;
 
 function splitLine(line: string, delimiter: string): string[] {
   const out: string[] = [];
@@ -122,10 +133,25 @@ export function parseMeterCsv(text: string): ParsedMeterCsv {
   if (headerIdx < 0) throw new Error('no header row with a time and an energy column found');
 
   const isValue = (c: string) =>
-    VALUE_HEADER.test(c) && !TIME_HEADER.test(c) && !STATUS_HEADER.test(c);
-  // Prefer a column that states a unit.
-  const withUnit = header.findIndex((c) => isValue(c) && /k?wh?\b/i.test(c));
-  const valueCol = withUnit >= 0 ? withUnit : header.findIndex(isValue);
+    (VALUE_HEADER.test(c) || /\((k?wh?)\)/i.test(c)) &&
+    !TIME_HEADER.test(c) &&
+    !STATUS_HEADER.test(c);
+  // Rank candidates: import before feed-in, metered before derived, a stated unit, file order.
+  const rank = (c: string) =>
+    (FEED_IN_HEADER.test(c) ? 4 : 0) +
+    (DERIVED_HEADER.test(c) ? 2 : 0) +
+    (/k?wh?\b/i.test(c) ? 0 : 1);
+  const valueCol = header
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => isValue(c))
+    .reduce<{ c: string; i: number } | null>(
+      (best, x) => (best == null || rank(x.c) < rank(best.c) ? x : best),
+      null,
+    )!.i;
+  if (FEED_IN_HEADER.test(header[valueCol]!))
+    throw new Error(
+      `column "${header[valueCol]}" looks like feed-in; please export the consumption (Verbrauch) values`,
+    );
   const statusCol = header.findIndex((c, i) => i !== valueCol && STATUS_HEADER.test(c));
   const timeCols = header
     .map((c, i) => (TIME_HEADER.test(c) && i !== valueCol ? i : -1))
@@ -186,7 +212,12 @@ export function parseMeterCsv(text: string): ParsedMeterCsv {
   return {
     rows,
     alignment,
-    columns: { time: header[tsCol]!, value: valueHeader, unit },
+    columns: {
+      time: header[tsCol]!,
+      value: valueHeader,
+      unit,
+      ignored: header.filter((c, i) => i !== valueCol && isValue(c)),
+    },
     skipped,
     warnings,
   };

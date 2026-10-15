@@ -177,4 +177,13 @@ The grid operator bills based on its own smart meter, not on your Fronius meter.
 2. Open History → Reconciliation and upload the file. Columns, decimal format and DST are detected automatically. If the timestamps are ambiguous, Peak Guard decides whether they mark the start or the end of each quarter-hour by matching them against your own data.
 3. Compare the matched quarter-hours, the monthly peaks of both meters and the suggested calibration factor. A least-squares fit over quarter-hours ≥ 2 kW is used, because that's the range that matters for peaks. **Apply** stores the factor; live and history values then use it.
 
-Netz NÖ does not publish its CSV format. If your export isn't recognized, please open an issue with the header line and a few anonymized rows.
+The Netz NÖ export looks like this. Timestamps mark the **end** of each quarter-hour, values are kWh with a decimal comma:
+
+```
+Messzeitpunkt;Verbrauch (kWh);Qualität;Restnetzbezug (kWh);Qualität EG;Eigendeckung (kWh);Ideeller Anteil (kWh);Eigendeckung erneuerb. Energie (kWh)
+01.01.2026 00:15;0,500000;L1;0,499990;L1;0,000010;0,000010;0,000010
+```
+
+Peak Guard uses **Verbrauch** (the metered grid import). If you're in an energy community (Energiegemeinschaft), the extra columns (Restnetzbezug, Eigendeckung …) only split that energy between the community and your supplier, so they're ignored; the import result lists them. The quality code (L1 …) is stored with each row. A feed-in export (Einspeisung) is refused.
+
+Other portals' formats are detected from the header (single timestamp, date + time, or from/to columns; kWh, Wh or kW). If your export isn't recognized, please open an issue with the header line and a few anonymized rows.

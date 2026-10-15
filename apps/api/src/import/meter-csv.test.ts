@@ -43,6 +43,7 @@ describe('parseMeterCsv', () => {
       time: 'Messzeitpunkt',
       value: 'Gemessener Verbrauch (kWh)',
       unit: 'kWh',
+      ignored: [],
     });
     expect(p.rows).toEqual([
       { ts: Z('2027-01-05T17:15:00Z'), wh: 500, status: null },
@@ -85,6 +86,50 @@ describe('parseMeterCsv', () => {
       '2026-10-25T01:00:00.000Z',
       '2026-10-25T01:15:00.000Z',
     ]);
+  });
+
+  it('reads the Netz NÖ export of an energy-community member', () => {
+    // header verbatim from smartmeter.netz-noe.at; values made up
+    const csv = [
+      'Messzeitpunkt;Verbrauch (kWh);Qualität;Restnetzbezug (kWh);Qualität EG;Eigendeckung (kWh);Ideeller Anteil (kWh);Eigendeckung erneuerb. Energie (kWh)',
+      '01.01.2026 00:15;0,500000;L1;0,499990;L1;0,000010;0,000010;0,000010',
+      '01.01.2026 00:30;0,650000;L1;0,650000;L1;0,000000;0,000000;0,000000',
+      '01.01.2026 00:45;2,750000;L2;2,749875;L1;0,000125;0,000125;0,000125',
+    ].join('\r\n');
+    const p = parseMeterCsv(csv);
+    expect(p.alignment).toBeNull(); // end-stamped; decided by detectAlignment
+    expect(p.columns).toEqual({
+      time: 'Messzeitpunkt',
+      value: 'Verbrauch (kWh)',
+      unit: 'kWh',
+      ignored: [
+        'Restnetzbezug (kWh)',
+        'Eigendeckung (kWh)',
+        'Ideeller Anteil (kWh)',
+        'Eigendeckung erneuerb. Energie (kWh)',
+      ],
+    });
+    expect(p.rows).toEqual([
+      { ts: Z('2025-12-31T23:15:00Z'), wh: 500, status: 'L1' },
+      { ts: Z('2025-12-31T23:30:00Z'), wh: 650, status: 'L1' },
+      { ts: Z('2025-12-31T23:45:00Z'), wh: 2750, status: 'L2' },
+    ]);
+    expect(p.skipped).toBe(0);
+    expect(p.warnings).toEqual([]);
+  });
+
+  it('prefers the metered column even when derived columns come first', () => {
+    const p = parseMeterCsv(
+      'Messzeitpunkt;Restnetzbezug (kWh);Verbrauch (kWh)\n01.01.2026 00:15;1;2\n',
+    );
+    expect(p.columns.value).toBe('Verbrauch (kWh)');
+    expect(p.rows[0]!.wh).toBe(2000);
+  });
+
+  it('refuses a feed-in export', () => {
+    expect(() =>
+      parseMeterCsv('Messzeitpunkt;Einspeisung (kWh);Qualität\n01.06.2026 12:15;1,2;L1\n'),
+    ).toThrow(/feed-in/);
   });
 
   it('rejects files without a recognizable header', () => {

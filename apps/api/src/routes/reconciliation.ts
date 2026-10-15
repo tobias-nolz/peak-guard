@@ -39,7 +39,12 @@ export function reconciliationRoutes(app: App, { db, env }: RouteDeps) {
             from: z.number(),
             to: z.number(),
             alignment: z.enum(['start', 'end']),
-            columns: z.object({ time: z.string(), value: z.string(), unit: z.string() }),
+            columns: z.object({
+              time: z.string(),
+              value: z.string(),
+              unit: z.string(),
+              ignored: z.array(z.string()),
+            }),
             warnings: z.array(z.string()),
           }),
           400: errorSchema,
