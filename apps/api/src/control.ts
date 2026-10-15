@@ -1,11 +1,13 @@
 import { INTERVAL_MS, intervalStart, type ClosedInterval } from '@peak-guard/core';
-import { WRITES_DISABLED_MESSAGE, type ControlSettings } from '@peak-guard/shared';
+import { writesDisabledMessage, type ControlSettings } from '@peak-guard/shared';
 
 /** Controller status as published by the collector (kv 'control.status'). */
 export interface ControlStatus {
   ts: number;
   mode: string;
   writesEnabled: boolean;
+  /** PEAK_GUARD_COMPOSE_VERSION the collector received (null/absent: older compose file) */
+  composeVersion?: number | null;
   modbus: {
     state: 'disabled' | 'ok' | 'error';
     error: string | null;
@@ -39,7 +41,7 @@ export function activeBlockedReason(
   if (next.mode !== 'active') return null;
   if (!status || now - status.ts > 60_000)
     return 'collector status unavailable — is the collector running?';
-  if (!status.writesEnabled) return WRITES_DISABLED_MESSAGE;
+  if (!status.writesEnabled) return writesDisabledMessage(status.composeVersion);
   if (status.modbus.state !== 'ok')
     return `Modbus is not available (${status.modbus.state}${status.modbus.error ? `: ${status.modbus.error}` : ''})`;
   if (status.revertTest?.status !== 'passed' && !next.acknowledgeNoRevert) {

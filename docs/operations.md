@@ -151,10 +151,15 @@ The datasource uses the main database user. For a read-only Grafana, create a ro
 
 ## Upgrades
 
+Update `docker-compose.yml` together with the images. Compose only passes the variables the file lists to each container, so an old file silently ignores newer `.env` settings (for example `CONTROL_WRITES_ENABLED` or `MODBUS_*`). The collector logs a warning, and the Control page names the cause, when it detects an outdated file.
+
 ```sh
+curl -fsSLO https://raw.githubusercontent.com/tobias-nolz/peak-guard/main/docker-compose.yml
 docker compose pull
 docker compose up -d --no-build
 ```
+
+If you changed `docker-compose.yml` yourself, merge the new version instead of overwriting it, or keep your changes in a `docker-compose.override.yml`.
 
 Both the collector and the API apply database migrations on start. A Postgres advisory lock prevents them from running concurrently. Take a backup before upgrading across major versions.
 

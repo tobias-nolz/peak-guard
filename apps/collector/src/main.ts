@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { addEvent, createDb, getSettings, kvSet, migrateWithRetry } from '@peak-guard/db';
 import { ModbusTcpTransport, SolarApiClient } from '@peak-guard/fronius';
-import { DEFAULT_SETTINGS, type Settings } from '@peak-guard/shared';
+import { COMPOSE_VERSION, DEFAULT_SETTINGS, type Settings } from '@peak-guard/shared';
 import { pino } from 'pino';
 import { Collector, errorMessage } from './collector.js';
 import { loadEnv, modbusHost } from './config.js';
@@ -71,6 +71,7 @@ const controller = new Controller({
   getSettings: () => settings,
   transport,
   writesEnabled: env.CONTROL_WRITES_ENABLED,
+  composeVersion: env.PEAK_GUARD_COMPOSE_VERSION ?? null,
   modbusPollMs: env.MODBUS_POLL_MS,
   now: () => collector.snapshot?.ts ?? Date.now(),
   staleAfterMs: Math.max(30_000, 3 * env.STALE_AFTER_MS),
@@ -83,6 +84,12 @@ log.info(
   },
   'controller configured',
 );
+if (env.PEAK_GUARD_COMPOSE_VERSION != null && env.PEAK_GUARD_COMPOSE_VERSION < COMPOSE_VERSION) {
+  log.warn(
+    { composeVersion: env.PEAK_GUARD_COMPOSE_VERSION, expected: COMPOSE_VERSION },
+    'docker-compose.yml is older than this image: download the current one, or settings from .env may not reach the collector',
+  );
+}
 
 // Commands from the API (currently: the revert self-test).
 await sql.listen(CONTROL_COMMAND_CHANNEL, (payload: string) => {

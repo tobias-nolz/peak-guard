@@ -25,8 +25,12 @@ describe('activeBlockedReason', () => {
     expect(activeBlockedReason(active, status(), now)).toBeNull();
     expect(activeBlockedReason(active, null, now)).toMatch(/collector/);
     expect(activeBlockedReason(active, status({ ts: 0 }), now)).toMatch(/collector/);
+    expect(
+      activeBlockedReason(active, status({ writesEnabled: false, composeVersion: 1 }), now),
+    ).toMatch(/CONTROL_WRITES_ENABLED=false\. Set it to true in \.env/);
+    // collector started from an older docker-compose.yml (no version passed)
     expect(activeBlockedReason(active, status({ writesEnabled: false }), now)).toMatch(
-      /CONTROL_WRITES_ENABLED/,
+      /docker-compose\.yml is older/,
     );
     expect(
       activeBlockedReason(

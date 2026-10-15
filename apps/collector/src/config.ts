@@ -31,6 +31,8 @@ export const collectorEnvSchema = z.object({
    * Active mode or for the revert self-test.
    */
   CONTROL_WRITES_ENABLED: bool.default(false),
+  /** Set by docker-compose.yml (see COMPOSE_VERSION); missing with an older file. */
+  PEAK_GUARD_COMPOSE_VERSION: z.coerce.number().int().optional(),
   /** Notification channels (all optional). */
   NOTIFY_NTFY_URL: z.string().url().optional(),
   NOTIFY_NTFY_TOKEN: z.string().optional(),

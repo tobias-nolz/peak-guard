@@ -10,7 +10,7 @@ import {
   type StorageCommand,
   type StorageState,
 } from '@peak-guard/fronius';
-import { WRITES_DISABLED_MESSAGE, type LiveSnapshot, type Settings } from '@peak-guard/shared';
+import { writesDisabledMessage, type LiveSnapshot, type Settings } from '@peak-guard/shared';
 import type { Logger } from 'pino';
 import type { Notification } from '../notify/notifier.js';
 import { commandFor, significantChange } from './mapping.js';
@@ -23,6 +23,8 @@ export interface ControllerDeps {
   transport: ModbusTransport | null;
   /** CONTROL_WRITES_ENABLED kill switch */
   writesEnabled: boolean;
+  /** PEAK_GUARD_COMPOSE_VERSION (null: older docker-compose.yml or no Compose) */
+  composeVersion?: number | null;
   modbusPollMs: number;
   /** Measurement time (inverter clock with the accelerated mock). */
   now: () => number;
@@ -211,7 +213,7 @@ export class Controller {
 
   /** Why active control can't write right now (null = it can). */
   private blockedReason(settings: Settings): string | null {
-    if (!this.deps.writesEnabled) return WRITES_DISABLED_MESSAGE;
+    if (!this.deps.writesEnabled) return writesDisabledMessage(this.deps.composeVersion);
     if (!this.deps.transport) return 'Modbus disabled (MODBUS_ENABLED=false)';
     if (this.modbus !== 'ok' || !this.storage)
       return `Modbus unavailable${this.modbusError ? `: ${this.modbusError}` : ''}`;
@@ -505,6 +507,7 @@ export class Controller {
       ts: Date.now(),
       mode: this.deps.getSettings().control.mode,
       writesEnabled: this.deps.writesEnabled,
+      composeVersion: this.deps.composeVersion ?? null,
       modbus: {
         state: this.modbus,
         error: this.modbusError,
@@ -566,7 +569,8 @@ export class Controller {
     };
     this.busy = true;
     if (!t) return finish(result('failed', 'Modbus is disabled (MODBUS_ENABLED=false)'));
-    if (!this.deps.writesEnabled) return finish(result('failed', WRITES_DISABLED_MESSAGE));
+    if (!this.deps.writesEnabled)
+      return finish(result('failed', writesDisabledMessage(this.deps.composeVersion)));
 
     await this.refreshStorage(true);
     if (!this.storage || !this.model)

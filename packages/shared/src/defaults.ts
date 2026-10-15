@@ -35,8 +35,19 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 /**
- * Shown wherever the collector's write kill switch blocks control. Compose reads .env
- * only when a container is created, so `restart` keeps the old value.
+ * Version of docker-compose.yml, passed to the collector as PEAK_GUARD_COMPOSE_VERSION.
+ * Bump it whenever the collector gets new environment variables: Compose only passes
+ * what the file lists, so an older file silently drops settings made in .env.
  */
-export const WRITES_DISABLED_MESSAGE =
-  'writes are disabled: the collector runs with CONTROL_WRITES_ENABLED=false. Set it to true in .env, then recreate the collector (`docker compose up -d collector`; `restart` keeps the old value)';
+export const COMPOSE_VERSION = 1;
+
+/**
+ * Why the collector's write kill switch blocks control, with the fix. `composeVersion`
+ * is what the collector received (null = an older docker-compose.yml without it).
+ */
+export function writesDisabledMessage(composeVersion: number | null | undefined): string {
+  if (composeVersion == null || composeVersion < COMPOSE_VERSION) {
+    return 'writes are disabled: the collector runs with CONTROL_WRITES_ENABLED=false, and your docker-compose.yml is older than the images, so settings from .env (CONTROL_WRITES_ENABLED, MODBUS_*, …) may not reach the collector. Download the current docker-compose.yml, then `docker compose up -d`';
+  }
+  return 'writes are disabled: the collector runs with CONTROL_WRITES_ENABLED=false. Set it to true in .env, then recreate the collector (`docker compose up -d collector`; `restart` keeps the old value)';
+}
