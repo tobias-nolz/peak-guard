@@ -57,7 +57,7 @@ With this setup Peak Guard only _reads_ data. Nothing is written to the inverter
 
 - **Quarter-hours** are clock-aligned (:00/:15/:30/:45) in `Europe/Vienna`. Vienna's UTC offset is a whole number of hours, so DST never shifts a quarter-hour. It only changes how many a day has (92 or 100).
 - **Interval energy** comes from the Smart Meter's cumulative import counter. Its value is linearly interpolated at each boundary between the surrounding samples. Power integration is only a fallback, used when no counter is available.
-- **Peak** = import energy of the interval ÷ 0.25 h, in kW. The month's maximum is billed, but at least the _minimum billed power_ (10 kW by default).
+- **Peak** = import energy of the interval ÷ 0.25 h, in kW. The month's maximum is billed, but at least the _minimum billed power_ (2 kW by default).
 - **Quality per interval:**
 
   | Quality     | Meaning                                                    |
@@ -144,7 +144,7 @@ All deployment settings are in `.env` (see [.env.example](.env.example), which d
 
 Every change is written to an audit log.
 
-Tariff defaults are **placeholders** until Netz NÖ publishes the 2027 price sheet: 19 €/kW/year up to 10 kW and 38 €/kW/year above (assumed 2× the base price), minimum 10 kW. Edit them under Settings.
+Tariff defaults are **placeholders** until Netz NÖ publishes the 2027 price sheet: 19 €/kW/year up to 10 kW and 38 €/kW/year above (assumed 2× the base price), minimum 2 kW. Edit them under Settings.
 
 ## Development
 

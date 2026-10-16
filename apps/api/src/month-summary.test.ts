@@ -56,6 +56,6 @@ describe('summarizeMonth', () => {
       'Europe/Vienna',
     );
     expect(s.peak?.kw).toBe(6.2);
-    expect(s.billedKw).toBe(10);
+    expect(s.billedKw).toBe(6.2);
   });
 });

@@ -29,7 +29,7 @@ export const TARIFF_NOE_2027_STEP1: CapacityTariff = {
   id: 'noe-2027-step1',
   label: 'Netz NÖ 2027 (first step, placeholder)',
   validFrom: '2027-01-01',
-  minBilledKw: 10,
+  minBilledKw: 2,
   tiers: [
     { upToKw: 10, eurPerKwYear: 19 },
     { upToKw: null, eurPerKwYear: 38 },
@@ -40,7 +40,7 @@ export const TARIFF_NOE_END_STAGE: CapacityTariff = {
   id: 'noe-end-stage',
   label: 'Netz NÖ end stage (placeholder)',
   validFrom: '2027-01-01',
-  minBilledKw: 10,
+  minBilledKw: 2,
   tiers: [
     { upToKw: 10, eurPerKwYear: 33.82 },
     { upToKw: null, eurPerKwYear: 67.64 },

@@ -12,7 +12,8 @@ import {
 
 describe('capacity tariff', () => {
   it('bills at least the minimum power', () => {
-    expect(billedKw(6.2, TARIFF_NOE_2027_STEP1)).toBe(10);
+    expect(billedKw(1.5, TARIFF_NOE_2027_STEP1)).toBe(2);
+    expect(billedKw(6.2, TARIFF_NOE_2027_STEP1)).toBe(6.2);
     expect(billedKw(12.5, TARIFF_NOE_2027_STEP1)).toBe(12.5);
   });
 
@@ -23,9 +24,10 @@ describe('capacity tariff', () => {
   });
 
   it('saves nothing when shaving below the minimum billed power', () => {
-    expect(monthlySaving(9.5, 6, TARIFF_NOE_END_STAGE)).toBe(0);
-    expect(monthlySaving(13, 9, TARIFF_NOE_END_STAGE)).toBeCloseTo((3 * 67.64) / 12, 6);
-    expect(marginalMonthlyPrice(8, TARIFF_NOE_END_STAGE)).toBe(0);
+    expect(monthlySaving(1.9, 1.5, TARIFF_NOE_END_STAGE)).toBe(0);
+    expect(monthlySaving(4, 1, TARIFF_NOE_END_STAGE)).toBeCloseTo((2 * 33.82) / 12, 6);
+    expect(marginalMonthlyPrice(1.5, TARIFF_NOE_END_STAGE)).toBe(0);
+    expect(marginalMonthlyPrice(8, TARIFF_NOE_END_STAGE)).toBeCloseTo(33.82 / 12, 6);
     expect(marginalMonthlyPrice(12, TARIFF_NOE_END_STAGE)).toBeCloseTo(67.64 / 12, 6);
   });
 
