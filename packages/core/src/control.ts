@@ -10,7 +10,7 @@
  * stuck setpoint can only reduce battery use.
  */
 
-import { INTERVAL_MS } from './time.js';
+import { DEFAULT_TIME_ZONE, INTERVAL_MS, localParts } from './time.js';
 
 export interface ControlConfig {
   /** Peak level to stay below (kW). */
@@ -51,7 +51,9 @@ export type ControlMode =
   /** Peak threat: discharge limited to the power needed to meet the target. */
   | 'shave'
   /** Battery at its absolute floor: nothing to give. */
-  | 'empty';
+  | 'empty'
+  /** Reserve being refilled from the grid (see applyGridCharge). */
+  | 'charge';
 
 export interface ControlDecision {
   mode: ControlMode;
@@ -65,6 +67,8 @@ export interface ControlDecision {
   requiredW: number;
   /** Projected interval average without any additional discharge (kW). */
   projectedKw: number;
+  /** Forced grid charge power (W), only in mode 'charge' (0 = session paused). */
+  chargeW?: number;
 }
 
 export function effectiveTarget(cfg: ControlConfig, monthPeakKw: number | null): number {
@@ -79,7 +83,8 @@ export function decide(i: ControlInputs, cfg: ControlConfig): ControlDecision {
   const budgetWh = (targetKw - cfg.marginKw) * 1000 * (INTERVAL_MS / 3_600_000);
   const leftWh = budgetWh - i.importWh;
   // Net demand the battery could serve = what's imported now plus what it already delivers.
-  const demandW = Math.max(0, i.gridW) + Math.max(0, i.batteryW);
+  // While the battery charges from the grid, that charge power is not house demand.
+  const demandW = Math.max(0, i.gridW + i.batteryW, i.batteryW);
   const affordableW = leftWh / remainingH;
   const requiredW = Math.max(0, demandW - affordableW);
   const projectedKw =
@@ -101,4 +106,114 @@ export function decide(i: ControlInputs, cfg: ControlConfig): ControlDecision {
     requiredW,
     projectedKw,
   };
+}
+
+/** Grid-charge parameters (see @peak-guard/shared gridChargeSchema). */
+export interface GridChargeConfig {
+  enabled: boolean;
+  hysteresisPct: number;
+  maxPowerW: number;
+  minPowerW: number;
+  headroomKw: number;
+  cooldownMinutes: number;
+}
+
+/** Session state across ticks; persist it so a restart doesn't reset the cooldown. */
+export interface GridChargeState {
+  active: boolean;
+  since: number | null;
+  lastStopAt: number | null;
+  lastShaveAt: number | null;
+}
+
+export const GRID_CHARGE_IDLE: GridChargeState = {
+  active: false,
+  since: null,
+  lastStopAt: null,
+  lastShaveAt: null,
+};
+
+export interface GridChargeResult {
+  decision: ControlDecision;
+  state: GridChargeState;
+  /** Why no charging happens right now (null while charging or when disabled). */
+  reason: string | null;
+}
+
+/** True if the local time of `ts` lies in [from, to) ("HH:MM"; across midnight if from > to; from == to: all day). */
+export function inLocalWindow(
+  ts: number,
+  from: string,
+  to: string,
+  timeZone: string = DEFAULT_TIME_ZONE,
+): boolean {
+  const toMin = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
+  const f = toMin(from);
+  const t = toMin(to);
+  if (f === t) return true;
+  const { hour, minute } = localParts(ts, timeZone);
+  const m = hour * 60 + minute;
+  return f < t ? m >= f && m < t : m >= f || m < t;
+}
+
+/**
+ * Refill the reserve from the grid on top of a decide() result — pure.
+ *
+ * Charges only up to the reserve (above it the inverter's self-consumption would spend
+ * the grid energy again). A session starts at SoC ≤ reserve − hysteresis, inside the time
+ * window, with enough peak-safe headroom, and only after the cooldown since the last
+ * session end *and* the last shave. Inside a session the power follows the headroom
+ * down to 0 W (= hold) without ending the session, so it doesn't flip-flop. A shave need,
+ * reaching the reserve, leaving the window or disabling ends it immediately.
+ */
+export function applyGridCharge(
+  base: ControlDecision,
+  i: ControlInputs,
+  cfg: ControlConfig,
+  gc: GridChargeConfig & { inWindow: boolean },
+  state: GridChargeState,
+  nowMs: number,
+): GridChargeResult {
+  const stop = (s: GridChargeState): GridChargeState =>
+    s.active ? { ...s, active: false, since: null, lastStopAt: nowMs } : s;
+
+  if (base.mode === 'shave') {
+    return { decision: base, state: { ...stop(state), lastShaveAt: nowMs }, reason: 'shaving' };
+  }
+  if (!gc.enabled) return { decision: base, state: stop(state), reason: null };
+  if (base.mode === 'release' || i.socPct >= cfg.reservePct) {
+    return { decision: base, state: stop(state), reason: 'reserve full' };
+  }
+  if (!gc.inWindow) return { decision: base, state: stop(state), reason: 'outside time window' };
+
+  // Peak-safe charge power: stay headroomKw below target − margin, never above the
+  // interval's remaining average budget, after the house's own net import.
+  const remainingH = Math.max(1_000, INTERVAL_MS - i.elapsedMs) / 3_600_000;
+  const budgetWh = (base.targetKw - cfg.marginKw) * 1000 * (INTERVAL_MS / 3_600_000);
+  const affordableW = (budgetWh - i.importWh) / remainingH;
+  const ceilingW =
+    Math.min(affordableW, (base.targetKw - cfg.marginKw) * 1000) - gc.headroomKw * 1000;
+  const houseW = Math.max(0, i.gridW + i.batteryW);
+  const capW = Math.min(gc.maxPowerW, cfg.maxDischargeW);
+  const rawW = Math.max(0, Math.min(capW, ceilingW - houseW));
+  const powerW = rawW >= gc.minPowerW ? Math.round(rawW) : 0;
+  const charge = (s: GridChargeState): GridChargeResult => ({
+    decision: { ...base, mode: 'charge', dischargeLimitW: 0, chargeW: powerW },
+    state: s,
+    reason: powerW > 0 ? null : 'no peak-safe headroom (paused)',
+  });
+
+  if (state.active) return charge(state);
+
+  if (i.socPct > cfg.reservePct - gc.hysteresisPct) {
+    return { decision: base, state, reason: 'SoC above the start level' };
+  }
+  const cooldownMs = gc.cooldownMinutes * 60_000;
+  const last = Math.max(state.lastStopAt ?? -Infinity, state.lastShaveAt ?? -Infinity);
+  if (nowMs - last < cooldownMs) {
+    const leftMin = Math.ceil((cooldownMs - (nowMs - last)) / 60_000);
+    return { decision: base, state, reason: `cooldown (${leftMin} min left)` };
+  }
+  if (powerW <= 0) return { decision: base, state, reason: 'no peak-safe headroom' };
+  return charge({ ...state, active: true, since: nowMs });
 }

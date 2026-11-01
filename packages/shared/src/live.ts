@@ -48,7 +48,7 @@ export const liveSnapshotSchema = z.object({
       mode: z.enum(['off', 'dryRun', 'active']),
       writesEnabled: z.boolean(),
       modbus: z.enum(['disabled', 'ok', 'error']),
-      decision: z.enum(['release', 'hold', 'shave', 'empty']).nullable(),
+      decision: z.enum(['release', 'hold', 'shave', 'empty', 'charge']).nullable(),
       targetKw: z.number().nullable(),
       limitW: z.number().nullable(),
       requiredW: z.number().nullable(),

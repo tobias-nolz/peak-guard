@@ -18,6 +18,16 @@ export const DEFAULT_SETTINGS: Settings = {
     minChangeW: 200,
     revertTimeoutS: 120,
     acknowledgeNoRevert: false,
+    gridCharge: {
+      enabled: false,
+      hysteresisPct: 10,
+      maxPowerW: 3_000,
+      minPowerW: 500,
+      headroomKw: 1,
+      cooldownMinutes: 60,
+      from: '22:00',
+      to: '06:00',
+    },
   },
   notifications: {
     events: {

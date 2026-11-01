@@ -304,6 +304,7 @@
       "release": "Batterie frei (Eigenverbrauch)",
       "hold": "Reserve wird gehalten",
       "shave": "Kappen aktiv",
+      "charge": "Laden aus dem Netz",
       "empty": "Batterie leer"
     },
     "target": "Ziel",

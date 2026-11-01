@@ -304,6 +304,7 @@
       "release": "Battery free (self-consumption)",
       "hold": "Holding the reserve",
       "shave": "Shaving",
+      "charge": "Charging from grid",
       "empty": "Battery empty"
     },
     "target": "Target",

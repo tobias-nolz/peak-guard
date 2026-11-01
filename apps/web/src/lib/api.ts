@@ -267,7 +267,7 @@ export interface ControlStatusDto {
 export interface DecisionDto {
   ts: number;
   controllerMode: string;
-  decision: 'release' | 'hold' | 'shave' | 'empty';
+  decision: 'release' | 'hold' | 'shave' | 'empty' | 'charge';
   targetKw: number;
   requiredW: number;
   limitW: number | null;
