@@ -106,6 +106,7 @@ function StatusCard({ data }: { data: ControlStatusDto }) {
     <div className="pt-3 pb-1 text-xs font-medium tracking-wide uppercase">{label}</div>
   );
   const mode = data.settings.mode;
+  const gc = s?.gridCharge;
   return (
     <Card>
       <CardHeader>
@@ -151,6 +152,11 @@ function StatusCard({ data }: { data: ControlStatusDto }) {
             )}
             {row(t('control.revert'), st.rvrtTmsS == null ? '–' : `${st.rvrtTmsS} s`)}
             {row(t('control.chaSt'), st.chaSt ?? '–')}
+            {st.chaGriSet != null &&
+              row(
+                t('control.chaGriSet'),
+                st.chaGriSet === 1 ? t('control.chaGriSetGrid') : t('control.chaGriSetPv'),
+              )}
           </>
         )}
         {section(t('control.decisionSection'))}
@@ -172,7 +178,23 @@ function StatusCard({ data }: { data: ControlStatusDto }) {
           ),
         )}
         {c?.decision && row(t('control.target'), fmtKw(c.targetKw, 1))}
+        {c?.decision === 'charge' &&
+          row(
+            t('control.chargePower'),
+            <span data-testid="charge-power">{fmtW(c.chargeW ?? 0)}</span>,
+          )}
+        {data.settings.gridCharge.enabled &&
+          row(
+            t('control.gridCharge'),
+            <span data-testid="grid-charge-state">
+              {gc?.active ? t('control.gcActive') : t('control.gcIdle')}
+              {gc?.reason && (
+                <span className="text-muted-foreground block text-xs">{gc.reason}</span>
+              )}
+            </span>,
+          )}
         {c?.decision &&
+          c.decision !== 'charge' &&
           row(
             t('control.limit'),
             <span data-testid="wanted-limit">
@@ -285,6 +307,10 @@ function ParamsCard({ initial }: { initial: ControlSettings }) {
           />
           {t('control.adaptive')}
         </label>
+        <GridChargeFields
+          value={p.gridCharge}
+          onChange={(gridCharge) => setP({ ...p, gridCharge })}
+        />
         <div className="flex items-center gap-3">
           <Button onClick={() => save.mutate(p)} disabled={save.isPending}>
             {t('control.save')}
@@ -298,6 +324,71 @@ function ParamsCard({ initial }: { initial: ControlSettings }) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function GridChargeFields({
+  value: g,
+  onChange,
+}: {
+  value: ControlSettings['gridCharge'];
+  onChange: (g: ControlSettings['gridCharge']) => void;
+}) {
+  const { t } = useTranslation();
+  const field = (
+    key: keyof ControlSettings['gridCharge'],
+    label: string,
+    input: React.ComponentProps<typeof Input>,
+  ) => (
+    <div className="space-y-1.5">
+      <Label htmlFor={`gc-${key}`}>{label}</Label>
+      <Input id={`gc-${key}`} disabled={!g.enabled} {...input} />
+    </div>
+  );
+  const num = (
+    key: 'hysteresisPct' | 'maxPowerW' | 'minPowerW' | 'headroomKw' | 'cooldownMinutes',
+    label: string,
+    step = '1',
+  ) =>
+    field(key, label, {
+      type: 'number',
+      step,
+      value: g[key],
+      onChange: (e) => onChange({ ...g, [key]: Number(e.target.value) }),
+    });
+  const time = (key: 'from' | 'to', label: string) =>
+    field(key, label, {
+      type: 'time',
+      value: g[key],
+      onChange: (e) => {
+        if (e.target.value) onChange({ ...g, [key]: e.target.value });
+      },
+    });
+  return (
+    <fieldset className="space-y-3 border-t pt-4" data-testid="grid-charge-params">
+      <legend className="text-sm font-medium">{t('control.gridCharge')}</legend>
+      <p className="text-muted-foreground text-xs">{t('control.gcIntro')}</p>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="size-4"
+          checked={g.enabled}
+          onChange={(e) => onChange({ ...g, enabled: e.target.checked })}
+          data-testid="gc-enabled"
+        />
+        {t('control.gcEnabled')}
+      </label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {num('hysteresisPct', t('control.gcHysteresis'))}
+        {num('cooldownMinutes', t('control.gcCooldown'), '5')}
+        {num('maxPowerW', t('control.gcMaxPower'), '100')}
+        {num('minPowerW', t('control.gcMinPower'), '100')}
+        {num('headroomKw', t('control.gcHeadroom'), '0.1')}
+        <div className="hidden sm:block" />
+        {time('from', t('control.gcFrom'))}
+        {time('to', t('control.gcTo'))}
+      </div>
+    </fieldset>
   );
 }
 
@@ -351,6 +442,20 @@ function DecisionsChart() {
         areaStyle: { opacity: 0.15 },
         data: rows.map((r) => [r.ts, r.decision === 'shave' ? (r.limitW ?? 0) / 1000 : 0]),
       },
+      // grid charging as a negative series (power into the battery)
+      ...(rows.some((r) => r.decision === 'charge')
+        ? [
+            {
+              name: t('control.chargePower'),
+              type: 'line',
+              step: 'end',
+              showSymbol: false,
+              color: c.house,
+              areaStyle: { opacity: 0.15 },
+              data: rows.map((r) => [r.ts, r.decision === 'charge' ? -(r.chargeW ?? 0) / 1000 : 0]),
+            },
+          ]
+        : []),
     ],
   };
   return (
@@ -393,6 +498,8 @@ function DryRunCard() {
         {stat(t('control.saving'), fmtEur(data.savingEur))}
         {stat(t('control.shaveIntervals'), String(data.shaveIntervals))}
         {stat(t('control.shaveEnergy'), `${fmtNumber(data.shaveKwh, 1)} kWh`)}
+        {data.chargeKwh > 0 &&
+          stat(t('control.gridChargeEnergy'), `${fmtNumber(data.chargeKwh, 1)} kWh`)}
       </CardContent>
     </Card>
   );

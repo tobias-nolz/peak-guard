@@ -238,6 +238,8 @@ export interface StorageDto {
   chaSt: string | null;
   outWRtePct: number | null;
   rvrtTmsS: number | null;
+  /** SunSpec ChaGriSet: 1 = charging from the grid allowed, 0 = PV only */
+  chaGriSet?: number | null;
 }
 
 export interface ControlStatusDto {
@@ -253,6 +255,14 @@ export interface ControlStatusDto {
     applying?: boolean;
     fault?: string | null;
     pausedUntil?: number | null;
+    gridCharge?: {
+      active: boolean;
+      since: number | null;
+      lastStopAt: number | null;
+      lastShaveAt: number | null;
+      /** why it isn't charging right now (null while charging or when disabled) */
+      reason: string | null;
+    };
     revertTest: {
       status: 'running' | 'passed' | 'failed';
       startedAt: number;
@@ -271,6 +281,8 @@ export interface DecisionDto {
   targetKw: number;
   requiredW: number;
   limitW: number | null;
+  /** grid charge power (W) for 'charge' */
+  chargeW: number | null;
   projectedKw: number;
   applied: boolean;
 }
@@ -280,6 +292,7 @@ export interface DryRunSummaryDto {
   decisions: number;
   shaveIntervals: number;
   shaveKwh: number;
+  chargeKwh: number;
   actualPeakKw: number;
   predictedPeakKw: number;
   savingEur: number;
