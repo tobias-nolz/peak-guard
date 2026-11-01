@@ -22,6 +22,7 @@ From 2027, Austrian grid operators (here: Netz NÖ) bill a **capacity charge (Le
   - Reads and writes the Gen24 via Modbus/SunSpec model 124.
   - Modes: Off → Dry-run (default) → Active.
   - Every decision is logged, and Dry-run shows the estimated saving.
+  - Optional (off by default): refills an empty reserve from the grid at night without creating a new peak, with a cooldown so it doesn't flip-flop between charging and shaving.
 - **Integrations:** notifications (ntfy, Telegram, webhook, e-mail), MQTT with Home Assistant discovery, load-shedding hooks (webhook/MQTT) that act before the battery, time-variable grid-fee windows, a Grafana dashboard.
 - **Operations:** login (password or auth proxy), audit log, Prometheus metrics, scheduled backups with a tested restore, gap handling and backfill from meter counters.
 
@@ -110,7 +111,12 @@ Design decisions that deviate from the original brief:
 ## Battery control: safety
 
 - **Off by default.** Nothing is written to the inverter unless `CONTROL_WRITES_ENABLED=true` (kill switch) **and** the mode is Active. The default mode is Dry-run, and tests and CI only ever write to the simulated inverter.
-- **Benign setpoints only.** Peak Guard sets discharge _limits_ (`StorCtl_Mod` bit 1, `OutWRte` ≥ 0) and never forces charging or discharging. Charging is never limited, so PV can always refill the reserve. If a setpoint gets stuck, the worst case is _less_ battery use.
+- **Benign setpoints by default.** Peak Guard sets discharge _limits_ (`StorCtl_Mod` bit 1, `OutWRte` ≥ 0) and never forces discharging. Charging is never limited, so PV can always refill the reserve. If a setpoint gets stuck, the worst case is _less_ battery use.
+- **Grid charging only as an opt-in, with stricter gates.** With _Charge the reserve from the grid_ enabled (Control → Parameters, off by default), Peak Guard may force a charge (negative `OutWRte`) — only up to the reserve, only inside the time window, and only as far as the quarter-hour stays the headroom below the target. It stops at once when the battery has to shave and waits a cooldown after every session and every shave. A stuck forced charge would import power, so on top of the gates below it needs:
+  - a **passed** revert self-test (the acknowledgement is not enough; the API refuses it);
+  - _battery charging from the grid_ allowed in the Gen24 UI (`ChaGriSet` is read, never written);
+  - a known battery power;
+  - charge commands are written with a revert timeout of at most 60 s, and ending a charge is never delayed by the rate limit.
 - **Gated activation.** Active needs:
   - working Modbus;
   - a passed **revert self-test**, which shows the inverter returns to its own mode by itself when Peak Guard stops writing — or an explicit acknowledgement that it doesn't;

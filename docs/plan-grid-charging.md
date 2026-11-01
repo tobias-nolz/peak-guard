@@ -1,22 +1,21 @@
 # Plan: grid charging of the peak-shaving reserve (with cooldown)
 
-Status: **core done** (commit after the plan): settings `control.gridCharge` (schema, defaults,
-DB deep-merge), `'charge'` decision mode (core, live snapshot, web DTO, locales), the shave
-demand fix in `decide()`, and the pure `applyGridCharge()` / `inLocalWindow()` in
-`packages/core/src/control.ts` with tests in `packages/core/src/gridcharge.test.ts`.
-Also done: Fronius `encodeStorageCommand`/`writeStorage` option `allowForcedCharge`;
-`commandFor` maps `charge` → negative OutWRte with `rvrtTmsS ≤ 60` (`CHARGE_REVERT_MAX_S`),
-`significantChange` treats a sign change as significant, `isForcedCharge()` helper (all tested).
-Also done: controller wiring in `apps/collector/src/control/controller.ts` (state in kv
-`control.gridCharge`, a session interrupted by a restart counts as ended, gates: battery power
-known / revert test passed in active / `ChaGriSet === 1`, immediate stop of a forced charge,
-keep-alive based on the written `rvrtTmsS`, `grid_charge` events, `gridCharge` in the status,
-`chargeW` in the live snapshot). **Not verified against a DB:** run `apps/collector/test/*.db.test.ts`
-locally and add the active-control scenario below.
-**Still to do:** the rest of the list, DB column + migration, simulator `ChaGriSet`, API gate, web settings UI and chart, docs.
-Note: the settings use `hysteresisPct`, `from`/`to` as written below; the collector must
-compute `inWindow` with `inLocalWindow(now, from, to)` and pass it to `applyGridCharge`. This file is the hand-over for continuing locally.
-Branch: `claude/modest-franklin-h7raum`. Delete this file once the feature is merged.
+Status: **implemented** on branch `claude/modest-franklin-h7raum`:
+
+- core: settings `control.gridCharge`, `'charge'` decision mode, the shave demand fix in `decide()`,
+  pure `applyGridCharge()` / `inLocalWindow()` (`packages/core/src/gridcharge.test.ts`)
+- Fronius: `allowForcedCharge`; collector mapping (`charge` → negative OutWRte, `rvrtTmsS ≤ 60`)
+- controller: gates, persisted session/cooldown state (kv `control.gridCharge`), `grid_charge` events,
+  time window in the collector's `TIME_ZONE`, `charge_w` logged in `control_decisions`
+  (migration `0003_decision_charge_w`)
+- simulator: `gridChargeAllowed` → `ChaGriSet` (mock: `MOCK_GRID_CHARGE_ALLOWED`)
+- API: Active + grid charging needs a passed revert test; the dry-run estimate adds the charge energy
+- web: Grid charging section in Parameters, status rows, negative chart series, dry-run kWh
+- docs: README safety section, `docs/hardware.md` policy + checklist step 9
+- closed-loop DB test in `apps/collector/test/active-control.db.test.ts`
+
+Not done (optional): `packages/core/src/simulate.ts` support for grid charging.
+Delete this file once the feature is merged.
 
 ## Goal
 
