@@ -1,5 +1,10 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { ControlSettings, LiveSnapshot, Settings } from '@peak-guard/shared';
+import type {
+  ControlSettings,
+  GridChargeSettings,
+  LiveSnapshot,
+  Settings,
+} from '@peak-guard/shared';
 
 export class ApiError extends Error {
   constructor(
@@ -190,6 +195,7 @@ export interface SimulationRequestDto {
     initialSocPct: number;
   };
   control: { thresholdKw: number; reservePct: number; adaptive: boolean; marginKw: number };
+  gridCharge?: GridChargeSettings;
   sweep?: { thresholdsKw: number[]; reservesPct: number[]; capacitiesKwh: number[] };
 }
 
@@ -198,6 +204,8 @@ export interface CostedResultDto {
   totalCostEur: number;
   avgMonthlyCostEur: number;
   shaveKwh: number;
+  importKwh: number;
+  gridChargeKwh: number;
   overTarget: number;
   months: {
     month: string;
@@ -226,6 +234,8 @@ export interface SimulationResultDto {
   none: CostedResultDto;
   selfConsumption: CostedResultDto;
   scenario: CostedResultDto;
+  /** the scenario without grid charging (only when grid charging was enabled) */
+  withoutGridCharge?: CostedResultDto;
   sweep?: SweepRowDto[];
   best?: SweepRowDto;
   actual: { month: string; peakKw: number; costEur: number }[];
@@ -238,6 +248,8 @@ export interface StorageDto {
   chaSt: string | null;
   outWRtePct: number | null;
   rvrtTmsS: number | null;
+  /** SunSpec ChaGriSet: 1 = charging from the grid allowed, 0 = PV only */
+  chaGriSet?: number | null;
 }
 
 export interface ControlStatusDto {
@@ -253,6 +265,14 @@ export interface ControlStatusDto {
     applying?: boolean;
     fault?: string | null;
     pausedUntil?: number | null;
+    gridCharge?: {
+      active: boolean;
+      since: number | null;
+      lastStopAt: number | null;
+      lastShaveAt: number | null;
+      /** why it isn't charging right now (null while charging or when disabled) */
+      reason: string | null;
+    };
     revertTest: {
       status: 'running' | 'passed' | 'failed';
       startedAt: number;
@@ -267,10 +287,12 @@ export interface ControlStatusDto {
 export interface DecisionDto {
   ts: number;
   controllerMode: string;
-  decision: 'release' | 'hold' | 'shave' | 'empty';
+  decision: 'release' | 'hold' | 'shave' | 'empty' | 'charge';
   targetKw: number;
   requiredW: number;
   limitW: number | null;
+  /** grid charge power (W) for 'charge' */
+  chargeW: number | null;
   projectedKw: number;
   applied: boolean;
 }
@@ -280,6 +302,7 @@ export interface DryRunSummaryDto {
   decisions: number;
   shaveIntervals: number;
   shaveKwh: number;
+  chargeKwh: number;
   actualPeakKw: number;
   predictedPeakKw: number;
   savingEur: number;
@@ -329,9 +352,13 @@ export const api = {
   simulate: (req: SimulationRequestDto) =>
     request<SimulationResultDto>('/api/simulation', { method: 'POST', body: JSON.stringify(req) }),
   simulationDefaults: () =>
-    request<{ thresholdKw: number; capacityKwh: number; maxPowerKw: number; minSocPct: number }>(
-      '/api/simulation/defaults',
-    ),
+    request<{
+      thresholdKw: number;
+      capacityKwh: number;
+      maxPowerKw: number;
+      minSocPct: number;
+      gridCharge: GridChargeSettings;
+    }>('/api/simulation/defaults'),
   importCsv: (file: File, alignment: 'auto' | 'start' | 'end') =>
     file
       .text()

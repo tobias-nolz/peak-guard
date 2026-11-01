@@ -26,6 +26,30 @@ export const batterySchema = z.object({
   minSocPct: z.number().min(0).max(100),
 });
 
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
+/** Grid charging of the reserve (opt-in; forced charging via model 124). */
+export const gridChargeSchema = z.object({
+  enabled: z.boolean(),
+  /** start a session only at SoC ≤ reservePct − hysteresisPct; charge up to reservePct */
+  hysteresisPct: z.number().min(1).max(50),
+  /** max grid charge power (W) */
+  maxPowerW: z.number().min(0).max(20_000),
+  /** don't start (and pause at 0 W) below this power (W) */
+  minPowerW: z.number().min(0).max(5_000),
+  /** keep this much below target − margin while charging (kW) */
+  headroomKw: z.number().min(0).max(10),
+  /** no new session for this long after a session ended or the battery shaved */
+  cooldownMinutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(24 * 60),
+  /** local time window (from == to: all day) */
+  from: hhmm,
+  to: hhmm,
+});
+
 export const controlModeSchema = z.enum(['off', 'dryRun', 'active']);
 
 /** Peak-shaving controller settings. */
@@ -46,6 +70,7 @@ export const controlSchema = z.object({
   revertTimeoutS: z.number().int().min(30).max(3600),
   /** user accepted running Active although the revert self-test did not pass */
   acknowledgeNoRevert: z.boolean(),
+  gridCharge: gridChargeSchema,
 });
 
 export const notificationKindSchema = z.enum([
@@ -114,8 +139,6 @@ export const loadShedRuleSchema = z.object({
   restore: hookActionSchema,
 });
 
-const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
-
 /** Time-variable grid fee window (local time). */
 export const feeWindowSchema = z.object({
   id: z.string().min(1).max(64),
@@ -149,6 +172,7 @@ export const settingsSchema = z.object({
 
 export type Tariff = z.infer<typeof tariffSchema>;
 export type BatterySettings = z.infer<typeof batterySchema>;
+export type GridChargeSettings = z.infer<typeof gridChargeSchema>;
 export type ControlSettings = z.infer<typeof controlSchema>;
 export type ControlModeName = z.infer<typeof controlModeSchema>;
 export type NotificationKind = z.infer<typeof notificationKindSchema>;

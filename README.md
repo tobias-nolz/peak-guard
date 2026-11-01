@@ -16,12 +16,13 @@ From 2027, Austrian grid operators (here: Netz NÖ) bill a **capacity charge (Le
   - Year overview with a month comparison.
   - CSV/JSON exports.
 - **Reconciliation:** import the Netz NÖ smart-meter CSV, compare it with your own measurement and apply a calibration factor. The month view then shows the billed peak.
-- **What-if simulation:** replays your history against a battery with a reserve for peak shaving, sweeps threshold × reserve × capacity and recommends a combination with the expected saving.
+- **What-if simulation:** replays your history against a battery with a reserve for peak shaving, sweeps threshold × reserve × capacity and recommends a combination with the expected saving. Optionally with grid charging of the reserve, compared with the same scenario without it.
 - **Peak-shaving control:**
   - Keeps part of the battery for peak shaving and discharges it only when the running quarter-hour would exceed the target.
   - Reads and writes the Gen24 via Modbus/SunSpec model 124.
   - Modes: Off → Dry-run (default) → Active.
   - Every decision is logged, and Dry-run shows the estimated saving.
+  - Optional (off by default): refills an empty reserve from the grid at night without creating a new peak, with a cooldown so it doesn't flip-flop between charging and shaving.
 - **Integrations:** notifications (ntfy, Telegram, webhook, e-mail), MQTT with Home Assistant discovery, load-shedding hooks (webhook/MQTT) that act before the battery, time-variable grid-fee windows, a Grafana dashboard.
 - **Operations:** login (password or auth proxy), audit log, Prometheus metrics, scheduled backups with a tested restore, gap handling and backfill from meter counters.
 
@@ -56,7 +57,7 @@ With this setup Peak Guard only _reads_ data. Nothing is written to the inverter
 
 - **Quarter-hours** are clock-aligned (:00/:15/:30/:45) in `Europe/Vienna`. Vienna's UTC offset is a whole number of hours, so DST never shifts a quarter-hour. It only changes how many a day has (92 or 100).
 - **Interval energy** comes from the Smart Meter's cumulative import counter. Its value is linearly interpolated at each boundary between the surrounding samples. Power integration is only a fallback, used when no counter is available.
-- **Peak** = import energy of the interval ÷ 0.25 h, in kW. The month's maximum is billed, but at least the _minimum billed power_ (10 kW by default).
+- **Peak** = import energy of the interval ÷ 0.25 h, in kW. The month's maximum is billed, but at least the _minimum billed power_ (2 kW by default).
 - **Quality per interval:**
 
   | Quality     | Meaning                                                    |
@@ -110,7 +111,12 @@ Design decisions that deviate from the original brief:
 ## Battery control: safety
 
 - **Off by default.** Nothing is written to the inverter unless `CONTROL_WRITES_ENABLED=true` (kill switch) **and** the mode is Active. The default mode is Dry-run, and tests and CI only ever write to the simulated inverter.
-- **Benign setpoints only.** Peak Guard sets discharge _limits_ (`StorCtl_Mod` bit 1, `OutWRte` ≥ 0) and never forces charging or discharging. Charging is never limited, so PV can always refill the reserve. If a setpoint gets stuck, the worst case is _less_ battery use.
+- **Benign setpoints by default.** Peak Guard sets discharge _limits_ (`StorCtl_Mod` bit 1, `OutWRte` ≥ 0) and never forces discharging. Charging is never limited, so PV can always refill the reserve. If a setpoint gets stuck, the worst case is _less_ battery use.
+- **Grid charging only as an opt-in, with stricter gates.** With _Charge the reserve from the grid_ enabled (Control → Parameters, off by default), Peak Guard may force a charge (negative `OutWRte`) — only up to the reserve, only inside the time window, and only as far as the quarter-hour stays the headroom below the target. It stops at once when the battery has to shave and waits a cooldown after every session and every shave. A stuck forced charge would import power, so on top of the gates below it needs:
+  - a **passed** revert self-test (the acknowledgement is not enough; the API refuses it);
+  - _battery charging from the grid_ allowed in the Gen24 UI (`ChaGriSet` is read, never written);
+  - a known battery power;
+  - charge commands are written with a revert timeout of at most 60 s, and ending a charge is never delayed by the rate limit.
 - **Gated activation.** Active needs:
   - working Modbus;
   - a passed **revert self-test**, which shows the inverter returns to its own mode by itself when Peak Guard stops writing — or an explicit acknowledgement that it doesn't;
@@ -138,7 +144,7 @@ All deployment settings are in `.env` (see [.env.example](.env.example), which d
 
 Every change is written to an audit log.
 
-Tariff defaults are **placeholders** until Netz NÖ publishes the 2027 price sheet: 19 €/kW/year up to 10 kW and 38 €/kW/year above (assumed 2× the base price), minimum 10 kW. Edit them under Settings.
+Tariff defaults are **placeholders** until Netz NÖ publishes the 2027 price sheet: 19 €/kW/year up to 10 kW and 38 €/kW/year above (assumed 2× the base price), minimum 2 kW. Edit them under Settings.
 
 ## Development
 

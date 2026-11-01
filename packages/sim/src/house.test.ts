@@ -50,6 +50,21 @@ describe('House simulation', () => {
     }
   });
 
+  it('forces a charge from the grid only when grid charging is allowed', () => {
+    const t0 = DAY + 2 * HOUR_MS; // night: no PV
+    for (const gridChargeAllowed of [true, false]) {
+      const h = new House(t0, { gridChargeAllowed }, { socPct: 20 });
+      h.writeControl({ storCtlMod: 2, outWRtePct: -50 }, t0);
+      const s = h.advanceTo(t0 + 10_000);
+      if (gridChargeAllowed) {
+        expect(s.batteryW).toBeCloseTo(-0.5 * h.config.batteryMaxW, 6);
+        expect(s.gridW).toBeGreaterThan(0.5 * h.config.batteryMaxW);
+      } else {
+        expect(s.batteryW).toBeCloseTo(0, 6);
+      }
+    }
+  });
+
   it('reverts control after the revert timeout when supported, not otherwise', () => {
     for (const revertSupported of [true, false]) {
       const t0 = DAY + 18 * HOUR_MS;

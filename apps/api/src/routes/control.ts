@@ -185,7 +185,7 @@ export function controlRoutes(app: App, { db, sql, env }: RouteDeps) {
       schema: {
         tags: ['control'],
         description:
-          'Dry-run estimate for a month: measured peak vs. the peak with the logged shave decisions applied.',
+          'Dry-run estimate for a month: measured peak vs. the peak with the logged shave (and grid-charge) decisions applied.',
         params: z.object({
           month: z.union([z.literal('current'), z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/)]),
         }),
@@ -210,6 +210,7 @@ export function controlRoutes(app: App, { db, sql, env }: RouteDeps) {
         decisions: decisions.length,
         shaveIntervals: shaved.length,
         shaveKwh: shaved.reduce((s, e) => s + e.shaveWh / 1000, 0),
+        chargeKwh: est.reduce((s, e) => s + e.chargeWh / 1000, 0),
         actualPeakKw: actualPeak,
         predictedPeakKw: predictedPeak,
         actualCostEur: monthlyCost(actualPeak, tariff),

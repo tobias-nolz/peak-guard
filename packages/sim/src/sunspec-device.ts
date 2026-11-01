@@ -115,7 +115,7 @@ export class SunSpecDevice {
         case OFF.RvrtTms:
           return ctl.revertS;
         case OFF.ChaGriSet:
-          return 1;
+          return this.house.config.gridChargeAllowed ? 1 : 0; // GRID / PV
         case OFF.MinRsvPct_SF:
         case OFF.InOutWRte_SF:
           return 0xfffe; // -2

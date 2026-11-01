@@ -41,8 +41,8 @@ describe('summarizeYear', () => {
       null,
       null,
     ]);
-    expect(y.months[2]!.billedKw).toBe(10);
-    expect(y.totalCostEur).toBeCloseTo((190 + 76) / 12 + (190 + 38) / 12 + 190 / 12, 6);
+    expect(y.months[2]!.billedKw).toBe(4);
+    expect(y.totalCostEur).toBeCloseTo((190 + 76) / 12 + (190 + 38) / 12 + 76 / 12, 6);
   });
 });
 

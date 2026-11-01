@@ -45,7 +45,8 @@ Model 124 fields:
 
 Peak Guard's policy (agreed):
 
-1. Only _benign_ setpoints: discharge **limits** (`StorCtl_Mod = 2`, `OutWRte ≥ 0`), never forced charge or discharge. A stuck setpoint can only _reduce_ battery use.
+1. By default only _benign_ setpoints: discharge **limits** (`StorCtl_Mod = 2`, `OutWRte ≥ 0`), never forced charge or discharge. A stuck setpoint can only _reduce_ battery use.
+   - **Exception, opt-in:** grid charging of the reserve forces a charge (`StorCtl_Mod = 2`, negative `OutWRte`, `InWRte = 100`). It needs a **passed** revert self-test (an acknowledgement is not enough), `ChaGriSet = 1` (read only — Peak Guard never writes it, see above) and a known battery power. Charge commands use `RvrtTms ≤ 60 s`, and stopping a charge is always written immediately. Forced _discharge_ stays refused in the Modbus encoder.
 2. An app-side watchdog restores inverter defaults on start, on shutdown and on any error. Keep-alive writes go out before any revert timeout.
 3. **Active mode is gated on a revert self-test**: write a harmless limit with `RvrtTms = 60`, stop writing, and confirm it reverts. If it doesn't, Active stays possible only after an explicit warning acknowledgement.
 
@@ -75,6 +76,7 @@ Work through these steps in order. Each one can be undone, and nothing is writte
    - **Passed:** if Peak Guard stops or loses the connection, the inverter drops the limits after the revert timeout.
    - **Failed:** the firmware ignores the storage revert timer. Peak Guard restored the defaults itself. You can still enable Active after acknowledging the warning, but then the app-side watchdog is the only safety net. Setpoints are benign by design (discharge limits only), so a stuck setpoint can only _reduce_ battery use, never force charging or discharging. A Fronius firmware update may change this, so re-run the test after updates.
 8. **Switch to Active** (Control page). Watch the decision chart and the inverter's battery status for the first evenings.
+9. **Optional: grid charging of the reserve.** Only after Active has run well for a while and the revert self-test **passed**. In the Gen24 UI, allow _battery charging from the grid_ (Control → Status then shows _Charging from the grid: allowed_). Try it in Dry-run first: the decision log shows _Charging from grid_ with the planned power. Then enable it under Control → Parameters and keep the headroom, time window and cooldown conservative.
 
 **Rollback at any time:**
 

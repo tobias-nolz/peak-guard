@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ControlDecision } from '@peak-guard/core';
-import { commandFor, significantChange } from './mapping.js';
+import { commandFor, isForcedCharge, significantChange } from './mapping.js';
 
 const d = (mode: ControlDecision['mode'], limit: number | null): ControlDecision => ({
   mode,
@@ -50,5 +50,24 @@ describe('significantChange', () => {
         6_000,
       ),
     ).toBe(true);
+  });
+});
+
+describe('grid charging', () => {
+  const charge = (w: number): ControlDecision => ({ ...d('charge', 0), chargeW: w });
+  it('maps a charge decision to a negative OutWRte with a short revert timeout', () => {
+    const c = commandFor(charge(1_500), 6_000, 120);
+    expect(c).toEqual({ storCtlMod: 2, outWRtePct: -25, inWRtePct: 100, rvrtTmsS: 60 });
+    expect(isForcedCharge(c)).toBe(true);
+  });
+  it('maps a paused session (0 W) to a plain hold', () => {
+    const c = commandFor(charge(0), 6_000, 120);
+    expect(c.outWRtePct).toBe(0);
+    expect(isForcedCharge(c)).toBe(false);
+  });
+  it('treats switching between charging and a discharge limit as significant', () => {
+    const a = commandFor(charge(600), 6_000, 120);
+    const b = commandFor(d('shave', 600), 6_000, 120);
+    expect(significantChange(a, b, 5_000, 6_000)).toBe(true);
   });
 });

@@ -5,11 +5,11 @@ const DAY = Date.parse('2027-01-14T23:00:00Z'); // 15 Jan 00:00 local
 const MIN = 60_000;
 
 /** One day at 1-minute resolution: 1 kW base load, EV adds 11 kW from 18:00 to 20:00 local. */
-function evDay(): NetPoint[] {
+function evDay(days = 1): NetPoint[] {
   const pts: NetPoint[] = [];
-  for (let m = 0; m < 24 * 60; m++) {
+  for (let m = 0; m < days * 24 * 60; m++) {
     const ts = DAY + m * MIN;
-    const h = m / 60;
+    const h = (m / 60) % 24;
     pts.push({ ts, netW: 1_000 + (h >= 18 && h < 20 ? 11_000 : 0) });
   }
   return pts;
@@ -74,5 +74,65 @@ describe('simulatePeakShaving', () => {
     expect(cells).toHaveLength(4);
     const best = cells.find((c) => c.thresholdKw === 10 && c.reservePct === 60)!;
     expect(best.result.peakKw).toBeLessThanOrEqual(10 + 1e-6);
+  });
+
+  describe('grid charging of the reserve', () => {
+    const gridCharge = {
+      enabled: true,
+      hysteresisPct: 10,
+      maxPowerW: 3_000,
+      minPowerW: 500,
+      headroomKw: 1,
+      cooldownMinutes: 60,
+      from: '22:00',
+      to: '06:00',
+    };
+    const shaving = { ...base, strategy: 'shaving' as const };
+
+    it('refills the reserve overnight so the second EV evening is shaved too', () => {
+      // no PV: after the first evening the reserve stays at ~20 % without grid charging
+      const without = simulatePeakShaving(evDay(2), shaving);
+      expect(without.peakKw).toBeGreaterThan(10.5);
+      expect(without.months[0]!.gridChargeKwh).toBe(0);
+
+      const withGc = simulatePeakShaving(evDay(2), { ...shaving, gridCharge });
+      const m = withGc.months[0]!;
+      expect(withGc.peakKw).toBeLessThanOrEqual(10 + 1e-6);
+      expect(m.overTarget).toBe(0);
+      // two nights after an EV evening, 60 % − 20 % of 10 kWh each (efficiency 1)
+      expect(m.gridChargeKwh).toBeCloseTo(8, 1);
+      // at efficiency 1 the extra import is only what is still stored at the end:
+      // the battery ends at 60 % instead of 5 % (5.5 kWh); the rest replaced evening import
+      expect(m.importKwh - without.months[0]!.importKwh).toBeCloseTo(5.5, 1);
+    });
+
+    it('charges only inside the time window', () => {
+      const r = simulatePeakShaving(evDay(2), {
+        ...shaving,
+        gridCharge: { ...gridCharge, from: '10:00', to: '11:00' },
+      });
+      // the next morning: 1 h × 3 kW = 3 kWh, not the full 4 kWh, and not overnight
+      expect(r.months[0]!.gridChargeKwh).toBeCloseTo(3, 1);
+    });
+
+    it('never charges above target − margin − headroom', () => {
+      // 7 kW house load at night: only 10 − 0 − 1 − 7 = 2 kW are left for charging
+      const night = evDay()
+        .filter((p) => p.ts < DAY + 6 * 60 * MIN)
+        .map((p) => ({ ...p, netW: 7_000 }));
+      const r = simulatePeakShaving(night, {
+        ...shaving,
+        battery: { ...base.battery, initialSocPct: 20 },
+        gridCharge: { ...gridCharge, from: '00:00', to: '06:00' },
+      });
+      expect(r.peakKw).toBeLessThanOrEqual(9 + 1e-6);
+      expect(r.peakKw).toBeGreaterThan(8.9);
+      expect(r.months[0]!.gridChargeKwh).toBeCloseTo(4, 1); // up to the reserve, not beyond
+    });
+
+    it('is ignored outside the shaving strategy', () => {
+      const r = simulatePeakShaving(evDay(2), { ...base, gridCharge });
+      expect(r.months[0]!.gridChargeKwh).toBe(0);
+    });
   });
 });

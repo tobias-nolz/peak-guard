@@ -153,7 +153,11 @@ export async function getSettings(db: Db): Promise<Settings> {
     ...DEFAULT_SETTINGS,
     ...data,
     battery: { ...DEFAULT_SETTINGS.battery, ...data.battery },
-    control: { ...DEFAULT_SETTINGS.control, ...data.control },
+    control: {
+      ...DEFAULT_SETTINGS.control,
+      ...data.control,
+      gridCharge: { ...DEFAULT_SETTINGS.control.gridCharge, ...data.control?.gridCharge },
+    },
     notifications: {
       ...DEFAULT_SETTINGS.notifications,
       ...data.notifications,
