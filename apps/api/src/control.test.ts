@@ -50,6 +50,25 @@ describe('activeBlockedReason', () => {
       ),
     ).toBeNull();
   });
+  it('requires a passed revert test for grid charging (acknowledging is not enough)', () => {
+    const now = 1_000_000;
+    const gc = {
+      ...active,
+      acknowledgeNoRevert: true,
+      gridCharge: { ...active.gridCharge, enabled: true },
+    };
+    expect(activeBlockedReason(gc, status(), now)).toBeNull();
+    expect(activeBlockedReason(gc, status({ revertTest: null }), now)).toMatch(/grid charging/);
+    expect(
+      activeBlockedReason(
+        gc,
+        status({ revertTest: { status: 'failed', startedAt: 0, finishedAt: 1, message: '' } }),
+        now,
+      ),
+    ).toMatch(/grid charging/);
+    // dry-run with grid charging needs no revert test
+    expect(activeBlockedReason({ ...gc, mode: 'dryRun' }, null, now)).toBeNull();
+  });
 });
 
 describe('dryRunEstimate', () => {
@@ -80,6 +99,19 @@ describe('dryRunEstimate', () => {
     expect(r[0]!.predictedKw).toBeCloseTo(10, 6);
     expect(r[0]!.shaveWh).toBeCloseTo(500, 6);
     expect(r[1]).toMatchObject({ actualKw: 4, shaveWh: 0, predictedKw: 4 });
+  });
+  it('adds the grid-charge energy of the decisions', () => {
+    // 2 kW charge for the whole quarter-hour (logged every 15 s)
+    const decisions = Array.from({ length: 60 }, (_, k) => ({
+      ts: T0 + k * 15_000,
+      decision: 'charge',
+      limitW: null,
+      chargeW: 2_000,
+    }));
+    const r = dryRunEstimate([iv(T0, 1)], decisions);
+    expect(r[0]!.chargeWh).toBeCloseTo(500, 6);
+    expect(r[0]!.shaveWh).toBe(0);
+    expect(r[0]!.predictedKw).toBeCloseTo(3, 6);
   });
   it('caps how long a single decision holds', () => {
     const r = dryRunEstimate([iv(T0, 12)], [{ ts: T0, decision: 'shave', limitW: 3_000 }]);
