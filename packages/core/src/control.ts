@@ -6,8 +6,9 @@
  * the inverter runs its normal self-consumption mode. At or below the reserve, discharge
  * is blocked unless the running quarter-hour would otherwise exceed the target; then the
  * battery may discharge exactly the power needed to stay within the interval's energy
- * budget. Only discharge *limits* are produced — never forced charge/discharge — so a
- * stuck setpoint can only reduce battery use.
+ * budget. decide() only produces discharge *limits* — never forced charge/discharge — so a
+ * stuck setpoint can only reduce battery use. The opt-in applyGridCharge() adds a forced
+ * charge (up to the reserve) on top; the collector gates it more strictly.
  */
 
 import { DEFAULT_TIME_ZONE, INTERVAL_MS, localParts } from './time.js';

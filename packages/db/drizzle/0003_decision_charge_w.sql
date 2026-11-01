@@ -1,0 +1,1 @@
+ALTER TABLE "control_decisions" ADD COLUMN "charge_w" real;

@@ -33,6 +33,8 @@ export interface ControllerDeps {
   /** PEAK_GUARD_COMPOSE_VERSION (null: older docker-compose.yml or no Compose) */
   composeVersion?: number | null;
   modbusPollMs: number;
+  /** IANA time zone for the grid-charge time window (default Europe/Vienna). */
+  timeZone?: string;
   /** Measurement time (inverter clock with the accelerated mock). */
   now: () => number;
   /** Wall clock for the watchdog and the revert test (injectable for tests). */
@@ -89,7 +91,9 @@ const sameCommand = (a: StorageCommand | null, b: StorageCommand | null) =>
  *
  * Dry-run logs what it would do. Active writes model 124 discharge limits — only when the
  * kill switch allows writes, Modbus works, the revert self-test passed (or was explicitly
- * acknowledged), control isn't paused and no fault is latched. Every write is read back
+ * acknowledged), control isn't paused and no fault is latched. Grid charging (opt-in) also
+ * needs a passed revert test, a known battery power and ChaGriSet = GRID, and is written
+ * with a revert timeout of at most 60 s. Every write is read back
  * and verified; on any problem, and on shutdown, mode changes and stale data, the
  * inverter's own mode is restored (StorCtl_Mod = 0). Limits are re-written before the
  * inverter-side revert timeout expires (keep-alive).
@@ -315,7 +319,11 @@ export class Controller {
       decide(inputs, coreCfg),
       inputs,
       coreCfg,
-      { ...gcs, enabled: gcs.enabled && !gate, inWindow: inLocalWindow(now, gcs.from, gcs.to) },
+      {
+        ...gcs,
+        enabled: gcs.enabled && !gate,
+        inWindow: inLocalWindow(now, gcs.from, gcs.to, this.deps.timeZone),
+      },
       this.gridCharge,
       now,
     );
@@ -375,6 +383,7 @@ export class Controller {
         targetKw: decision.targetKw,
         requiredW: decision.requiredW,
         limitW: decision.dischargeLimitW,
+        chargeW: decision.mode === 'charge' ? decision.chargeW : null,
         projectedKw: decision.projectedKw,
         gridW: i.gridW,
         batteryW: i.batteryW,

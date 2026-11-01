@@ -62,10 +62,14 @@ describe.skipIf(!adminUrl)('active peak shaving (closed loop)', () => {
     },
   };
 
-  function rig(withController: boolean, revertSupported = true): Rig {
-    const sim = { now: START, wall: 0 };
+  function rig(
+    withController: boolean,
+    revertSupported = true,
+    { start = START, socPct = 50 }: { start?: number; socPct?: number } = {},
+  ): Rig {
+    const sim = { now: start, wall: 0 };
     const house = new House(
-      START,
+      start,
       {
         // January evening: no PV; no random appliances, EV or heat pump — the EV is injected below
         profile: { ...DEFAULT_PROFILE, evW: 0, heatPumpW: 0, appliances: false },
@@ -76,7 +80,7 @@ describe.skipIf(!adminUrl)('active peak shaving (closed loop)', () => {
       },
       // below the 60 % reserve from the start: self-consumption would use it before the EV,
       // the controller holds it for the evening
-      { socPct: 50 },
+      { socPct },
     );
     const device = new SunSpecDevice(house, () => sim.now, { controlEnabled: true });
     const transport = new DeviceTransport(device);
@@ -206,6 +210,70 @@ describe.skipIf(!adminUrl)('active peak shaving (closed loop)', () => {
       expect(r.house.control.storCtlMod).toBe(0);
     } finally {
       settings.control.acknowledgeNoRevert = false;
+    }
+  }, 120_000);
+
+  it('grid charging refills the reserve at night, stops for a load spike, then waits out the cooldown', async () => {
+    const MIN = 60_000;
+    const NIGHT = Date.parse('2027-01-15T21:30:00Z'); // 22:30 local, inside 22:00–06:00
+    const SPIKE_FROM = NIGHT + 15 * MIN; // a quarter-hour boundary
+    const SPIKE_TO = SPIKE_FROM + 20 * MIN;
+    const saved = settings.control.gridCharge;
+    // reserve 60 %, start level 50 %, 3 kW, cooldown 60 min
+    settings.control.gridCharge = { ...saved, enabled: true };
+    try {
+      const r = rig(true, true, { start: NIGHT, socPct: 40 });
+      expect((await r.ctl!.runRevertTest(60)).status).toBe('passed');
+
+      // reserve empty at night → a charge session starts at 3 kW from the grid
+      await run(r, SPIKE_FROM - TICK);
+      expect(r.ctl!.snapshotPart()).toMatchObject({
+        decision: 'charge',
+        chargeW: 3_000,
+        applying: true,
+      });
+      expect(r.house.control.outWRtePct).toBeLessThan(0);
+      expect(r.house.current.batteryW).toBeCloseTo(-3_000, 0);
+      const socAtSpike = r.house.current.socPct;
+      expect(socAtSpike).toBeGreaterThan(40);
+
+      // load spike → the session stops at the next tick and the battery shaves
+      r.house.addDisturbance({ extraW: 11_000, until: SPIKE_TO, name: 'sauna' });
+      await run(r, SPIKE_FROM + 2 * TICK);
+      expect(r.ctl!.snapshotPart().decision).toBe('shave');
+      expect(r.house.control.outWRtePct).toBeGreaterThan(0);
+      expect(r.house.current.batteryW).toBeGreaterThan(0);
+
+      // after the spike: hold, no new session before the cooldown has passed …
+      await run(r, SPIKE_TO + 70 * MIN);
+      const rows = await decisionsBetween(db, NIGHT, SPIKE_TO + 70 * MIN, 50_000);
+      const charges = rows.filter((d) => d.decision === 'charge');
+      const shaves = rows.filter((d) => d.decision === 'shave');
+      expect(charges.some((d) => d.applied && d.chargeW === 3_000)).toBe(true);
+      expect(rows.filter((d) => d.decision !== 'charge').every((d) => d.chargeW == null)).toBe(
+        true,
+      );
+      expect(shaves.length).toBeGreaterThan(0);
+      const firstShave = shaves[0]!.ts;
+      const lastShave = shaves.at(-1)!.ts;
+      expect(firstShave - SPIKE_FROM).toBeLessThanOrEqual(TICK);
+      expect(lastShave).toBeLessThanOrEqual(SPIKE_TO + TICK);
+      const between = charges.filter((d) => d.ts > firstShave && d.ts < lastShave + 60 * MIN);
+      expect(between).toEqual([]);
+      // … and a new session after it
+      const restart = charges.find((d) => d.ts >= lastShave + 60 * MIN);
+      expect(restart).toBeDefined();
+      expect(restart!.ts - lastShave).toBeLessThan(61 * MIN);
+      expect(r.ctl!.snapshotPart().decision).toBe('charge');
+
+      // charging never created a quarter-hour above the target, the reserve was never exceeded
+      expect(peak(r)).toBeLessThanOrEqual(10.05);
+      expect(r.house.current.socPct).toBeLessThanOrEqual(60.5);
+
+      await r.ctl!.close();
+      expect(r.house.control.storCtlMod).toBe(0);
+    } finally {
+      settings.control.gridCharge = saved;
     }
   }, 120_000);
 });

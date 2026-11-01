@@ -83,12 +83,14 @@ export const controlDecisions = pgTable('control_decisions', {
   ts: tstz('ts').primaryKey(),
   /** controller mode: off | dryRun | active */
   controllerMode: text('controller_mode').notNull(),
-  /** decision: release | hold | shave | empty */
+  /** decision: release | hold | shave | empty | charge */
   decision: text('decision').notNull(),
   targetKw: real('target_kw').notNull(),
   requiredW: real('required_w').notNull(),
   /** discharge limit (W); null = no limit */
   limitW: real('limit_w'),
+  /** grid charge power (W) for 'charge'; null otherwise */
+  chargeW: real('charge_w'),
   projectedKw: real('projected_kw').notNull(),
   gridW: real('grid_w').notNull(),
   batteryW: real('battery_w'),

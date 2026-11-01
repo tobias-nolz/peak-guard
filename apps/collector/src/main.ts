@@ -73,6 +73,7 @@ const controller = new Controller({
   writesEnabled: env.CONTROL_WRITES_ENABLED,
   composeVersion: env.PEAK_GUARD_COMPOSE_VERSION ?? null,
   modbusPollMs: env.MODBUS_POLL_MS,
+  timeZone: env.TIME_ZONE,
   now: () => collector.snapshot?.ts ?? Date.now(),
   staleAfterMs: Math.max(30_000, 3 * env.STALE_AFTER_MS),
   alert: (n, key) => void notifier.notify(n, key),
