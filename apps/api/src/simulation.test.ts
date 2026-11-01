@@ -63,4 +63,32 @@ describe('runSimulation', () => {
     expect(r.best).toMatchObject({ thresholdKw: 10, reservePct: 30 });
     expect(r.best!.avgMonthlySavingEur).toBeCloseTo((2 * 38) / 12, 6);
   });
+
+  it('with grid charging also returns the scenario without it', async () => {
+    // winter: no PV, so only grid charging refills the reserve for the second evening
+    const noPv = points.map((p, m) => {
+      const h = (m % 1440) / 60;
+      return { ...p, netW: 1_000 + (h >= 18 && h < 20 ? 11_000 : 0) };
+    });
+    const plain = await runSimulation(noPv, req, DEFAULT_SETTINGS, 'Europe/Vienna');
+    expect(plain.withoutGridCharge).toBeUndefined();
+    expect(plain.scenario.gridChargeKwh).toBe(0);
+
+    const gridCharge = { ...DEFAULT_SETTINGS.control.gridCharge, enabled: true };
+    const r = await runSimulation(noPv, { ...req, gridCharge }, DEFAULT_SETTINGS, 'Europe/Vienna');
+    expect(r.withoutGridCharge!.peakKw).toBeGreaterThan(10.5);
+    expect(r.withoutGridCharge!.gridChargeKwh).toBe(0);
+    expect(r.scenario.peakKw).toBeLessThanOrEqual(10 + 1e-6);
+    expect(r.scenario.gridChargeKwh).toBeGreaterThan(3);
+    expect(r.scenario.avgMonthlyCostEur).toBeLessThan(r.withoutGridCharge!.avgMonthlyCostEur);
+    // disabled grid charging is the same as none
+    const off = await runSimulation(
+      noPv,
+      { ...req, gridCharge: { ...gridCharge, enabled: false } },
+      DEFAULT_SETTINGS,
+      'Europe/Vienna',
+    );
+    expect(off.withoutGridCharge).toBeUndefined();
+    expect(off.scenario.peakKw).toBeCloseTo(plain.scenario.peakKw, 6);
+  });
 });

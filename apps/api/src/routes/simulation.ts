@@ -5,6 +5,7 @@ import { summarizeYear } from '../month-summary.js';
 import { series } from '../queries.js';
 import { runSimulation, simulationRequestSchema, toNetPoints } from '../simulation.js';
 import { localParts } from '@peak-guard/core';
+import { gridChargeSchema } from '@peak-guard/shared';
 
 export function simulationRoutes(app: App, { db, sql, env }: RouteDeps) {
   app.post(
@@ -15,7 +16,9 @@ export function simulationRoutes(app: App, { db, sql, env }: RouteDeps) {
         description:
           'Replay the 1-minute history in [from, to) against a battery and peak-shaving strategy. Returns the ' +
           'measured peaks, baselines without battery and with plain self-consumption, the scenario and an ' +
-          'optional threshold × reserve × capacity sweep (≤ 64 runs) with average monthly costs and savings.',
+          'optional threshold × reserve × capacity sweep (≤ 64 runs) with average monthly costs and savings. ' +
+          'With gridCharge.enabled the scenario and the sweep also refill the reserve from the grid, and ' +
+          'withoutGridCharge holds the same scenario without it.',
         body: simulationRequestSchema.refine(
           (r) => r.to > r.from && r.to - r.from <= MAX_RANGE_MS,
           {
@@ -63,6 +66,7 @@ export function simulationRoutes(app: App, { db, sql, env }: RouteDeps) {
             capacityKwh: z.number(),
             maxPowerKw: z.number(),
             minSocPct: z.number(),
+            gridCharge: gridChargeSchema,
           }),
         },
       },
@@ -74,6 +78,7 @@ export function simulationRoutes(app: App, { db, sql, env }: RouteDeps) {
         capacityKwh: s.battery.capacityKwh ?? 10,
         maxPowerKw: s.battery.maxPowerKw ?? 5,
         minSocPct: s.battery.minSocPct,
+        gridCharge: s.control.gridCharge,
       };
     },
   );

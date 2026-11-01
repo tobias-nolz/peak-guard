@@ -7,7 +7,7 @@ import {
   type SimResult,
   type SimulationParams,
 } from '@peak-guard/core';
-import type { Settings } from '@peak-guard/shared';
+import { gridChargeSchema, type Settings } from '@peak-guard/shared';
 import type { SeriesPoint } from './queries.js';
 
 export const simulationRequestSchema = z.object({
@@ -26,6 +26,8 @@ export const simulationRequestSchema = z.object({
     adaptive: z.boolean().default(true),
     marginKw: z.number().min(0).max(5).default(0.2),
   }),
+  /** Grid charging of the reserve (applies to the scenario and the sweep). */
+  gridCharge: gridChargeSchema.optional(),
   sweep: z
     .object({
       thresholdsKw: z.array(z.number().min(0).max(1000)).min(1).max(8),
@@ -54,6 +56,8 @@ export interface CostedMonth {
   costEur: number;
   shaveKwh: number;
   dischargeKwh: number;
+  importKwh: number;
+  gridChargeKwh: number;
   shaveIntervals: number;
   overTarget: number;
   minSocPct: number;
@@ -64,6 +68,9 @@ export interface CostedResult {
   totalCostEur: number;
   avgMonthlyCostEur: number;
   shaveKwh: number;
+  /** Grid import (kWh, uncalibrated) and the part of it charged into the battery. */
+  importKwh: number;
+  gridChargeKwh: number;
   overTarget: number;
   months: CostedMonth[];
 }
@@ -80,6 +87,8 @@ export function costResult(r: SimResult, settings: Settings): CostedResult {
       costEur: monthlyCost(kw, tariffFor(`${m.month}-01`, settings.tariffs)),
       shaveKwh: m.shaveKwh,
       dischargeKwh: m.dischargeKwh,
+      importKwh: m.importKwh,
+      gridChargeKwh: m.gridChargeKwh,
       shaveIntervals: m.shaveIntervals,
       overTarget: m.overTarget,
       minSocPct: m.minSocPct,
@@ -91,6 +100,8 @@ export function costResult(r: SimResult, settings: Settings): CostedResult {
     totalCostEur: total,
     avgMonthlyCostEur: months.length ? total / months.length : 0,
     shaveKwh: months.reduce((s, m) => s + m.shaveKwh, 0),
+    importKwh: months.reduce((s, m) => s + m.importKwh, 0),
+    gridChargeKwh: months.reduce((s, m) => s + m.gridChargeKwh, 0),
     overTarget: months.reduce((s, m) => s + m.overTarget, 0),
     months,
   };
@@ -105,6 +116,7 @@ export interface SweepRow {
   /** vs. today's self-consumption with the same battery capacity */
   avgMonthlySavingEur: number;
   shaveKwh: number;
+  gridChargeKwh: number;
   overTarget: number;
 }
 
@@ -125,6 +137,7 @@ export async function runSimulation(
     strategy: 'shaving',
     battery: req.battery,
     control: { ...req.control, minBilledKw },
+    gridCharge: req.gridCharge?.enabled ? req.gridCharge : undefined,
     timeZone,
   };
   const run = async (p: SimulationParams) => {
@@ -135,6 +148,10 @@ export async function runSimulation(
   const none = await run({ ...base, strategy: 'none' });
   const selfConsumption = await run({ ...base, strategy: 'selfConsumption' });
   const scenario = await run(base);
+  // Same scenario without grid charging, to show what grid charging adds.
+  const withoutGridCharge = base.gridCharge
+    ? await run({ ...base, gridCharge: undefined })
+    : undefined;
 
   let sweep: SweepRow[] | undefined;
   let best: SweepRow | undefined;
@@ -160,6 +177,7 @@ export async function runSimulation(
             avgMonthlySavingEur:
               selfByCapacity.get(capacityKwh)!.avgMonthlyCostEur - r.avgMonthlyCostEur,
             shaveKwh: r.shaveKwh,
+            gridChargeKwh: r.gridChargeKwh,
             overTarget: r.overTarget,
           });
         }
@@ -175,5 +193,13 @@ export async function runSimulation(
     )[0];
   }
 
-  return { points: points.length, none, selfConsumption, scenario, sweep, best };
+  return {
+    points: points.length,
+    none,
+    selfConsumption,
+    scenario,
+    withoutGridCharge,
+    sweep,
+    best,
+  };
 }
