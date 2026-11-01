@@ -14,8 +14,9 @@ Status: **implemented** on branch `claude/modest-franklin-h7raum`:
 - docs: README safety section, `docs/hardware.md` policy + checklist step 9
 - closed-loop DB test in `apps/collector/test/active-control.db.test.ts`
 
-Not done (optional): `packages/core/src/simulate.ts` support for grid charging.
-Delete this file once the feature is merged.
+- what-if simulation: optional `gridCharge` (core `simulate.ts`, API `withoutGridCharge` comparison,
+  `gridChargeKwh`/`importKwh`, Simulation page section and KPI)
+  Delete this file once the feature is merged.
 
 ## Goal
 

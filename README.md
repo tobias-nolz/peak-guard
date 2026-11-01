@@ -16,7 +16,7 @@ From 2027, Austrian grid operators (here: Netz NÖ) bill a **capacity charge (Le
   - Year overview with a month comparison.
   - CSV/JSON exports.
 - **Reconciliation:** import the Netz NÖ smart-meter CSV, compare it with your own measurement and apply a calibration factor. The month view then shows the billed peak.
-- **What-if simulation:** replays your history against a battery with a reserve for peak shaving, sweeps threshold × reserve × capacity and recommends a combination with the expected saving.
+- **What-if simulation:** replays your history against a battery with a reserve for peak shaving, sweeps threshold × reserve × capacity and recommends a combination with the expected saving. Optionally with grid charging of the reserve, compared with the same scenario without it.
 - **Peak-shaving control:**
   - Keeps part of the battery for peak shaving and discharges it only when the running quarter-hour would exceed the target.
   - Reads and writes the Gen24 via Modbus/SunSpec model 124.

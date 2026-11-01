@@ -269,7 +269,11 @@
     "heatmapHint": "Zelle anklicken, um die Kombination zu übernehmen.",
     "best": "Empfehlung: Schwelle {{t}} kW, Reserve {{r}} % → spart im Schnitt {{eur}} pro Monat.",
     "noData": "Zu wenig aufgezeichnete Daten in diesem Zeitraum.",
-    "fidelity": "Simulierte Eigenverbrauchs-Spitze vs. gemessen: {{sim}} vs. {{real}} (wie gut das Batteriemodell zu deiner Anlage passt)."
+    "fidelity": "Simulierte Eigenverbrauchs-Spitze vs. gemessen: {{sim}} vs. {{real}} (wie gut das Batteriemodell zu deiner Anlage passt).",
+    "gcIntro": "Füllt die Reserve im Zeitfenster aus dem Netz auf (wie unter Regelung → Parameter), ohne das Ziel zu überschreiten. Das Ergebnis wird zusätzlich ohne Netzladen berechnet, um zu zeigen, was es bringt.",
+    "withoutGridCharge": "Peak-Shaving ohne Netzladen",
+    "gcGain": "Netzladen bringt zusätzlich",
+    "gcEnergy": "{{charged}} kWh aus dem Netz geladen, {{extra}} kWh mehr Netzbezug (Verluste und was noch gespeichert ist). Höchste Spitze ohne: {{peak}}"
   },
   "control": {
     "title": "Peak-Shaving-Regelung",

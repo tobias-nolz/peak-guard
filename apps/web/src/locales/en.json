@@ -269,7 +269,11 @@
     "heatmapHint": "Click a cell to use that combination.",
     "best": "Recommendation: threshold {{t}} kW, reserve {{r}} % → saves {{eur}} per month on average.",
     "noData": "Not enough recorded data in this period.",
-    "fidelity": "Simulated self-consumption peak vs. measured: {{sim}} vs. {{real}} (how well the battery model matches your system)."
+    "fidelity": "Simulated self-consumption peak vs. measured: {{sim}} vs. {{real}} (how well the battery model matches your system).",
+    "gcIntro": "Refills the reserve from the grid inside the time window (as Control → Parameters would), without exceeding the target. The result is also computed without grid charging, to show what it adds.",
+    "withoutGridCharge": "Peak shaving without grid charging",
+    "gcGain": "Grid charging adds",
+    "gcEnergy": "{{charged}} kWh charged from the grid, {{extra}} kWh more grid import (losses and what is still stored). Highest peak without it: {{peak}}"
   },
   "control": {
     "title": "Peak-shaving control",

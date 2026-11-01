@@ -1,5 +1,10 @@
 import { queryOptions } from '@tanstack/react-query';
-import type { ControlSettings, LiveSnapshot, Settings } from '@peak-guard/shared';
+import type {
+  ControlSettings,
+  GridChargeSettings,
+  LiveSnapshot,
+  Settings,
+} from '@peak-guard/shared';
 
 export class ApiError extends Error {
   constructor(
@@ -190,6 +195,7 @@ export interface SimulationRequestDto {
     initialSocPct: number;
   };
   control: { thresholdKw: number; reservePct: number; adaptive: boolean; marginKw: number };
+  gridCharge?: GridChargeSettings;
   sweep?: { thresholdsKw: number[]; reservesPct: number[]; capacitiesKwh: number[] };
 }
 
@@ -198,6 +204,8 @@ export interface CostedResultDto {
   totalCostEur: number;
   avgMonthlyCostEur: number;
   shaveKwh: number;
+  importKwh: number;
+  gridChargeKwh: number;
   overTarget: number;
   months: {
     month: string;
@@ -226,6 +234,8 @@ export interface SimulationResultDto {
   none: CostedResultDto;
   selfConsumption: CostedResultDto;
   scenario: CostedResultDto;
+  /** the scenario without grid charging (only when grid charging was enabled) */
+  withoutGridCharge?: CostedResultDto;
   sweep?: SweepRowDto[];
   best?: SweepRowDto;
   actual: { month: string; peakKw: number; costEur: number }[];
@@ -342,9 +352,13 @@ export const api = {
   simulate: (req: SimulationRequestDto) =>
     request<SimulationResultDto>('/api/simulation', { method: 'POST', body: JSON.stringify(req) }),
   simulationDefaults: () =>
-    request<{ thresholdKw: number; capacityKwh: number; maxPowerKw: number; minSocPct: number }>(
-      '/api/simulation/defaults',
-    ),
+    request<{
+      thresholdKw: number;
+      capacityKwh: number;
+      maxPowerKw: number;
+      minSocPct: number;
+      gridCharge: GridChargeSettings;
+    }>('/api/simulation/defaults'),
   importCsv: (file: File, alignment: 'auto' | 'start' | 'end') =>
     file
       .text()

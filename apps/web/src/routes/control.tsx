@@ -4,6 +4,7 @@ import { ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ControlSettings } from '@peak-guard/shared';
 import { EChart, chartColors } from '@/components/echart';
+import { GridChargeFields } from '@/components/grid-charge-fields';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -307,10 +308,13 @@ function ParamsCard({ initial }: { initial: ControlSettings }) {
           />
           {t('control.adaptive')}
         </label>
-        <GridChargeFields
-          value={p.gridCharge}
-          onChange={(gridCharge) => setP({ ...p, gridCharge })}
-        />
+        <div className="border-t pt-4">
+          <GridChargeFields
+            value={p.gridCharge}
+            onChange={(gridCharge) => setP({ ...p, gridCharge })}
+            intro={t('control.gcIntro')}
+          />
+        </div>
         <div className="flex items-center gap-3">
           <Button onClick={() => save.mutate(p)} disabled={save.isPending}>
             {t('control.save')}
@@ -324,71 +328,6 @@ function ParamsCard({ initial }: { initial: ControlSettings }) {
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function GridChargeFields({
-  value: g,
-  onChange,
-}: {
-  value: ControlSettings['gridCharge'];
-  onChange: (g: ControlSettings['gridCharge']) => void;
-}) {
-  const { t } = useTranslation();
-  const field = (
-    key: keyof ControlSettings['gridCharge'],
-    label: string,
-    input: React.ComponentProps<typeof Input>,
-  ) => (
-    <div className="space-y-1.5">
-      <Label htmlFor={`gc-${key}`}>{label}</Label>
-      <Input id={`gc-${key}`} disabled={!g.enabled} {...input} />
-    </div>
-  );
-  const num = (
-    key: 'hysteresisPct' | 'maxPowerW' | 'minPowerW' | 'headroomKw' | 'cooldownMinutes',
-    label: string,
-    step = '1',
-  ) =>
-    field(key, label, {
-      type: 'number',
-      step,
-      value: g[key],
-      onChange: (e) => onChange({ ...g, [key]: Number(e.target.value) }),
-    });
-  const time = (key: 'from' | 'to', label: string) =>
-    field(key, label, {
-      type: 'time',
-      value: g[key],
-      onChange: (e) => {
-        if (e.target.value) onChange({ ...g, [key]: e.target.value });
-      },
-    });
-  return (
-    <fieldset className="space-y-3 border-t pt-4" data-testid="grid-charge-params">
-      <legend className="text-sm font-medium">{t('control.gridCharge')}</legend>
-      <p className="text-muted-foreground text-xs">{t('control.gcIntro')}</p>
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          className="size-4"
-          checked={g.enabled}
-          onChange={(e) => onChange({ ...g, enabled: e.target.checked })}
-          data-testid="gc-enabled"
-        />
-        {t('control.gcEnabled')}
-      </label>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {num('hysteresisPct', t('control.gcHysteresis'))}
-        {num('cooldownMinutes', t('control.gcCooldown'), '5')}
-        {num('maxPowerW', t('control.gcMaxPower'), '100')}
-        {num('minPowerW', t('control.gcMinPower'), '100')}
-        {num('headroomKw', t('control.gcHeadroom'), '0.1')}
-        <div className="hidden sm:block" />
-        {time('from', t('control.gcFrom'))}
-        {time('to', t('control.gcTo'))}
-      </div>
-    </fieldset>
   );
 }
 

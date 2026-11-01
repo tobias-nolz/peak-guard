@@ -3,7 +3,9 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { EChartsCoreOption } from 'echarts/core';
+import type { GridChargeSettings } from '@peak-guard/shared';
 import { EChart, chartColors } from '@/components/echart';
+import { GridChargeFields } from '@/components/grid-charge-fields';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -33,6 +35,7 @@ interface Form {
   reservePct: string;
   adaptive: boolean;
   marginKw: string;
+  gridCharge: GridChargeSettings;
   thresholds: string;
   reserves: string;
   capacities: string;
@@ -62,6 +65,7 @@ export function SimulationPage() {
           reservePct: '40',
           adaptive: true,
           marginKw: '0.2',
+          gridCharge: d.gridCharge,
           thresholds: [th, th + 1, th + 2, th + 3].join(', '),
           reserves: '20, 40, 60, 80',
           capacities: String(d.capacityKwh),
@@ -96,6 +100,7 @@ function SimulationForm({ initial }: { initial: Form }) {
         adaptive: form.adaptive,
         marginKw: Number(form.marginKw),
       },
+      gridCharge: form.gridCharge,
       sweep: {
         thresholdsKw: parseList(form.thresholds).slice(0, 8),
         reservesPct: parseList(form.reserves).slice(0, 8),
@@ -160,6 +165,13 @@ function SimulationForm({ initial }: { initial: Form }) {
               {t('sim.adaptive')}
             </label>
           </fieldset>
+          <GridChargeFields
+            value={f.gridCharge}
+            onChange={(gridCharge) => set({ gridCharge })}
+            intro={t('sim.gcIntro')}
+            idPrefix="sim-gc"
+            wide
+          />
           <fieldset className="grid gap-4 sm:grid-cols-3">
             <legend className="mb-2 text-sm font-semibold">{t('sim.sweep')}</legend>
             <div className="space-y-1.5">
@@ -227,6 +239,7 @@ function Results({
   const cap = capacity ?? capacities[0] ?? null;
   const measuredPeak = Math.max(0, ...r.actual.map((a) => a.peakKw));
   const saving = r.selfConsumption.avgMonthlyCostEur - r.scenario.avgMonthlyCostEur;
+  const gc = r.withoutGridCharge;
 
   const monthly = (() => {
     const c = chartColors(dark);
@@ -260,6 +273,9 @@ function Results({
         bar(t('sim.measured'), c.grid, by(r.actual)),
         bar(t('sim.noBattery'), dark ? '#475569' : '#cbd5e1', by(r.none.months)),
         bar(t('sim.selfConsumption'), c.house, by(r.selfConsumption.months)),
+        ...(r.withoutGridCharge
+          ? [bar(t('sim.withoutGridCharge'), c.battery, by(r.withoutGridCharge.months))]
+          : []),
         bar(t('sim.shaving'), c.safe, by(r.scenario.months)),
       ],
     };
@@ -347,6 +363,20 @@ function Results({
           value={t('sim.perMonth', { eur: fmtEur(saving) })}
           sub={`${t('sim.shaveEnergy')}: ${fmtNumber(r.scenario.shaveKwh, 1)} kWh · ${t('sim.overTarget')}: ${r.scenario.overTarget}`}
         />
+        {gc && (
+          <Kpi
+            label={t('sim.gcGain')}
+            value={t('sim.perMonth', {
+              eur: fmtEur(gc.avgMonthlyCostEur - r.scenario.avgMonthlyCostEur),
+            })}
+            sub={t('sim.gcEnergy', {
+              charged: fmtNumber(r.scenario.gridChargeKwh, 1),
+              extra: fmtNumber(r.scenario.importKwh - gc.importKwh, 1),
+              peak: fmtKw(gc.peakKw),
+            })}
+            testId="sim-gc-gain"
+          />
+        )}
       </div>
       {r.best && (
         <p
