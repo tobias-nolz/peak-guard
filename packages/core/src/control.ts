@@ -148,12 +148,18 @@ export function inLocalWindow(
   to: string,
   timeZone: string = DEFAULT_TIME_ZONE,
 ): boolean {
+  if (from === to) return true;
+  const { hour, minute } = localParts(ts, timeZone);
+  return minuteInWindow(hour * 60 + minute, from, to);
+}
+
+/** Like inLocalWindow, for a local minute of the day (0..1439). */
+export function minuteInWindow(minuteOfDay: number, from: string, to: string): boolean {
   const toMin = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
   const f = toMin(from);
   const t = toMin(to);
+  const m = minuteOfDay;
   if (f === t) return true;
-  const { hour, minute } = localParts(ts, timeZone);
-  const m = hour * 60 + minute;
   return f < t ? m >= f && m < t : m >= f || m < t;
 }
 

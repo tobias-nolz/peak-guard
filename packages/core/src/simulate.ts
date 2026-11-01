@@ -5,8 +5,22 @@
  * compared on the same history.
  */
 
-import { decide, type ControlConfig } from './control.js';
-import { INTERVAL_HOURS, INTERVAL_MS, intervalStart, monthKey, DEFAULT_TIME_ZONE } from './time.js';
+import {
+  GRID_CHARGE_IDLE,
+  applyGridCharge,
+  decide,
+  minuteInWindow,
+  type ControlConfig,
+  type GridChargeConfig,
+  type GridChargeState,
+} from './control.js';
+import {
+  INTERVAL_HOURS,
+  INTERVAL_MS,
+  intervalStart,
+  localParts,
+  DEFAULT_TIME_ZONE,
+} from './time.js';
 
 export interface NetPoint {
   ts: number;
@@ -35,6 +49,8 @@ export interface SimulationParams {
   strategy: Strategy;
   battery: BatteryModel;
   control: Omit<ControlConfig, 'maxDischargeW' | 'minSocPct'>;
+  /** Grid charging of the reserve (shaving strategy only; see applyGridCharge). */
+  gridCharge?: GridChargeConfig & { from: string; to: string };
   timeZone?: string;
   /** Gaps between points longer than this are not integrated (missing data). */
   maxGapMs?: number;
@@ -54,6 +70,8 @@ export interface SimMonth {
   shaveKwh: number;
   /** Total battery energy delivered (kWh). */
   dischargeKwh: number;
+  /** Energy charged into the battery from the grid (kWh, at the meter). */
+  gridChargeKwh: number;
   /** Lowest SoC reached (%). */
   minSocPct: number;
 }
@@ -80,6 +98,15 @@ export function simulatePeakShaving(points: readonly NetPoint[], p: SimulationPa
     maxDischargeW: maxW,
   };
   const baseTarget = Math.max(cfg.thresholdKw, cfg.minBilledKw);
+  const gc = p.strategy === 'shaving' && p.gridCharge?.enabled ? p.gridCharge : null;
+  let gcState: GridChargeState = GRID_CHARGE_IDLE;
+  const gcWindow = gc
+    ? Array.from({ length: 1440 }, (_, m) => minuteInWindow(m, gc.from, gc.to))
+    : null;
+  const gcStartPct = cfg.reservePct - (gc?.hysteresisPct ?? 0);
+  // Local minute of day at the current interval start (the UTC offset can't change
+  // inside a quarter-hour), so the time window needs no time-zone formatting per step.
+  let startMinuteOfDay = 0;
 
   let socWh = (b.initialSocPct / 100) * capWh;
   const months = new Map<string, SimMonth>();
@@ -105,6 +132,7 @@ export function simulatePeakShaving(points: readonly NetPoint[], p: SimulationPa
         importKwh: 0,
         shaveKwh: 0,
         dischargeKwh: 0,
+        gridChargeKwh: 0,
         minSocPct: 100,
       };
       months.set(key, m);
@@ -139,12 +167,15 @@ export function simulatePeakShaving(points: readonly NetPoint[], p: SimulationPa
         curStart = intervalStart(t);
         eWh = 0;
         shavedThisInterval = false;
-        const key = monthKey(curStart, tz);
+        // one time-zone lookup per interval for the month and the local time of day
+        const lp = localParts(curStart, tz);
+        const key = `${lp.year}-${String(lp.month).padStart(2, '0')}`;
         if (key !== curMonth) {
           curMonth = key;
           monthPeak = null;
         }
         curM = monthOf(key);
+        startMinuteOfDay = lp.hour * 60 + lp.minute;
       }
       const m = curM!;
       const dtH = (end - t) / H;
@@ -152,21 +183,43 @@ export function simulatePeakShaving(points: readonly NetPoint[], p: SimulationPa
       let batW = 0;
       const socPct = capWh > 0 ? (socWh / capWh) * 100 : 0;
       if (hasBattery) {
-        if (net > 0) {
+        let d: ReturnType<typeof decide> | null = null;
+        // applyGridCharge can only change something while a session runs or may start
+        // (or on a shave, which decide() needs net > 0 for) — skip it otherwise (speed).
+        let inWindow = false;
+        if (gcWindow) {
+          inWindow = gcWindow[(startMinuteOfDay + Math.floor((t - curStart) / 60_000)) % 1440]!;
+        }
+        const gcMayAct = !!gc && (gcState.active || (inWindow && socPct <= gcStartPct));
+        if (p.strategy === 'shaving' && (net > 0 || gcMayAct)) {
+          const inputs = {
+            elapsedMs: t - curStart,
+            importWh: eWh,
+            gridW: net,
+            batteryW: 0,
+            socPct,
+            monthPeakKw: monthPeak,
+          };
+          d = decide(inputs, cfg);
+          if (gc && (gcMayAct || d.mode === 'shave')) {
+            const r = applyGridCharge(d, inputs, cfg, { ...gc, inWindow }, gcState, t);
+            d = r.decision;
+            gcState = r.state;
+          }
+        }
+        if (d?.mode === 'charge') {
+          // Forced charge: the planned grid power up to the reserve (the step may be longer
+          // than a controller tick), or more if there is PV surplus.
+          const roomW = Math.max(0, capWh - socWh) / b.efficiency / dtH;
+          const toReserveW =
+            Math.max(0, (cfg.reservePct / 100) * capWh - socWh) / b.efficiency / dtH;
+          batW = -Math.min(Math.max(Math.min(d.chargeW ?? 0, toReserveW), -net), maxW, roomW);
+          socWh += -batW * dtH * b.efficiency;
+          m.gridChargeKwh += (Math.max(0, -batW - Math.max(0, -net)) * dtH) / 1000;
+        } else if (net > 0) {
           let limit: number | null = null;
           let floorPct = b.minSocPct;
-          if (p.strategy === 'shaving') {
-            const d = decide(
-              {
-                elapsedMs: t - curStart,
-                importWh: eWh,
-                gridW: net,
-                batteryW: 0,
-                socPct,
-                monthPeakKw: monthPeak,
-              },
-              cfg,
-            );
+          if (d) {
             limit = d.dischargeLimitW;
             // In release mode the controller switches to hold at the reserve.
             floorPct = d.mode === 'release' ? cfg.reservePct : b.minSocPct;
