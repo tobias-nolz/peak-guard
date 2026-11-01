@@ -14,9 +14,47 @@ permissions:
   contents: read
 
 jobs:
+  # On push (main / tags): skip check + e2e when this exact source tree already
+  # passed CI, e.g. the PR whose head became this merge/squash commit, or the
+  # main commit a release tag points to. Falls back to the full run otherwise.
+  gate:
+    name: Already verified?
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    outputs:
+      verified: ${{ steps.lookup.outputs.verified }}
+    steps:
+      - id: lookup
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          tree() { gh api "repos/$REPO/commits/$1" --jq .commit.tree.sha; }
+          want=$(tree "$SHA")
+          candidates=$( (echo "$SHA"; gh api "repos/$REPO/commits/$SHA/pulls" --jq '.[].head.sha') | sort -u)
+          for c in $candidates; do
+            [ "$(tree "$c")" = "$want" ] || continue
+            passed=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$c&status=success" \
+              --jq "[.workflow_runs[] | select(.id != $RUN_ID)] | length")
+            if [ "$passed" -gt 0 ]; then
+              echo "::notice::Tree $want already passed CI (commit $c), skipping check + e2e"
+              echo "verified=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "verified=false" >> "$GITHUB_OUTPUT"
+
   check:
     name: Lint, typecheck, test
     runs-on: ubuntu-latest
+    needs: gate
+    if: needs.gate.outputs.verified != 'true'
     services:
       timescaledb:
         image: timescale/timescaledb:2.30.2-pg18
@@ -93,10 +131,13 @@ jobs:
           name: playwright-report
           path: apps/web/playwright-report
 
+  # Publishing only. On PRs the e2e job already builds every Dockerfile (amd64)
+  # via compose, so the multi-arch build runs once, on main / tags.
   images:
     name: Build images (${{ matrix.image }})
     runs-on: ubuntu-latest
-    needs: check
+    needs: [gate, check]
+    if: github.event_name != 'pull_request' && !cancelled() && !failure()
     permissions:
       contents: read
       packages: write
@@ -112,7 +153,6 @@ jobs:
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
-        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -133,7 +173,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           build-args: APP=${{ matrix.app }}
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.image }}
