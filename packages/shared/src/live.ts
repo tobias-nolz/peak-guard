@@ -51,6 +51,8 @@ export const liveSnapshotSchema = z.object({
       decision: z.enum(['release', 'hold', 'shave', 'empty', 'charge']).nullable(),
       targetKw: z.number().nullable(),
       limitW: z.number().nullable(),
+      /** forced grid charge power (W) while charging the reserve from the grid */
+      chargeW: z.number().nullable().optional(),
       requiredW: z.number().nullable(),
       storCtlMod: z.number().nullable(),
       outWRtePct: z.number().nullable(),

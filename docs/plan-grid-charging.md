@@ -7,8 +7,13 @@ demand fix in `decide()`, and the pure `applyGridCharge()` / `inLocalWindow()` i
 Also done: Fronius `encodeStorageCommand`/`writeStorage` option `allowForcedCharge`;
 `commandFor` maps `charge` → negative OutWRte with `rvrtTmsS ≤ 60` (`CHARGE_REVERT_MAX_S`),
 `significantChange` treats a sign change as significant, `isForcedCharge()` helper (all tested).
-**Still to do:** controller wiring (kv state, gates, immediate stop, pass
-`allowForcedCharge: isForcedCharge(cmd)` to `writeStorage` in `write()`), DB column + migration, simulator `ChaGriSet`, API gate, web settings UI and chart, docs.
+Also done: controller wiring in `apps/collector/src/control/controller.ts` (state in kv
+`control.gridCharge`, a session interrupted by a restart counts as ended, gates: battery power
+known / revert test passed in active / `ChaGriSet === 1`, immediate stop of a forced charge,
+keep-alive based on the written `rvrtTmsS`, `grid_charge` events, `gridCharge` in the status,
+`chargeW` in the live snapshot). **Not verified against a DB:** run `apps/collector/test/*.db.test.ts`
+locally and add the active-control scenario below.
+**Still to do:** the rest of the list, DB column + migration, simulator `ChaGriSet`, API gate, web settings UI and chart, docs.
 Note: the settings use `hysteresisPct`, `from`/`to` as written below; the collector must
 compute `inWindow` with `inLocalWindow(now, from, to)` and pass it to `applyGridCharge`. This file is the hand-over for continuing locally.
 Branch: `claude/modest-franklin-h7raum`. Delete this file once the feature is merged.

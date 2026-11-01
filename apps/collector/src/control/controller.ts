@@ -1,4 +1,11 @@
-import { decide, type ControlDecision } from '@peak-guard/core';
+import {
+  GRID_CHARGE_IDLE,
+  applyGridCharge,
+  decide,
+  inLocalWindow,
+  type ControlDecision,
+  type GridChargeState,
+} from '@peak-guard/core';
 import { addEvent, insertDecisions, kvGet, kvSet, type Db, type DecisionRow } from '@peak-guard/db';
 import {
   STORAGE_DEFAULTS,
@@ -13,7 +20,7 @@ import {
 import { writesDisabledMessage, type LiveSnapshot, type Settings } from '@peak-guard/shared';
 import type { Logger } from 'pino';
 import type { Notification } from '../notify/notifier.js';
-import { commandFor, significantChange } from './mapping.js';
+import { commandFor, isForcedCharge, significantChange } from './mapping.js';
 
 export interface ControllerDeps {
   db: Db;
@@ -68,6 +75,7 @@ const STATUS_EVERY_MS = 5_000;
 /** Consecutive failed writes/verifications before control is latched off. */
 const MAX_FAILURES = 3;
 const REVERT_KV = 'control.revertTest';
+const GRID_CHARGE_KV = 'control.gridCharge';
 
 const sameCommand = (a: StorageCommand | null, b: StorageCommand | null) =>
   !!a &&
@@ -115,6 +123,9 @@ export class Controller {
   private busy = false;
   private note: string | null = null;
   private applying = false;
+  /** Grid-charge session/cooldown state (persisted so a restart keeps the cooldown). */
+  private gridCharge: GridChargeState = GRID_CHARGE_IDLE;
+  private gridChargeReason: string | null = null;
 
   constructor(private readonly deps: ControllerDeps) {
     this.modbus = deps.transport ? 'error' : 'disabled';
@@ -132,6 +143,12 @@ export class Controller {
   async init(): Promise<void> {
     this.revert = await kvGet<RevertTestResult>(this.deps.db, REVERT_KV).catch(() => null);
     if (this.revert?.status === 'running') this.revert = null; // interrupted by a restart
+    const gc = await kvGet<GridChargeState>(this.deps.db, GRID_CHARGE_KV).catch(() => null);
+    // A session interrupted by a restart counts as ended now (starts the cooldown).
+    if (gc)
+      this.gridCharge = gc.active
+        ? { ...gc, active: false, since: null, lastStopAt: this.deps.now() }
+        : gc;
     await this.refreshStorage(true);
     if (this.deps.writesEnabled && this.storage && this.storage.storCtlMod !== 0) {
       await this.restoreDefaults('startup: limits left from a previous run');
@@ -148,6 +165,7 @@ export class Controller {
       decision: this.decision?.mode ?? null,
       targetKw: this.decision?.targetKw ?? null,
       limitW: this.decision?.dischargeLimitW ?? null,
+      chargeW: this.decision?.chargeW ?? null,
       requiredW: this.decision?.requiredW ?? null,
       storCtlMod: this.storage?.storCtlMod ?? null,
       outWRtePct: this.storage?.outWRtePct ?? null,
@@ -263,26 +281,58 @@ export class Controller {
       return;
     }
 
-    const decision = decide(
-      {
-        elapsedMs: i.elapsedMs,
-        importWh: i.importWh,
-        gridW: i.gridW,
-        batteryW: i.batteryW ?? 0,
-        socPct: soc,
-        monthPeakKw: i.monthPeakKw,
-      },
-      {
-        thresholdKw: settings.thresholdKw,
-        minBilledKw: settings.tariffs[0]?.minBilledKw ?? 0,
-        adaptive: cfg.adaptive,
-        marginKw: cfg.marginKw,
-        reservePct: cfg.reservePct,
-        minSocPct: settings.battery.minSocPct,
-        maxDischargeW: maxW,
-      },
-    );
+    const inputs = {
+      elapsedMs: i.elapsedMs,
+      importWh: i.importWh,
+      gridW: i.gridW,
+      batteryW: i.batteryW ?? 0,
+      socPct: soc,
+      monthPeakKw: i.monthPeakKw,
+    };
+    const coreCfg = {
+      thresholdKw: settings.thresholdKw,
+      minBilledKw: settings.tariffs[0]?.minBilledKw ?? 0,
+      adaptive: cfg.adaptive,
+      marginKw: cfg.marginKw,
+      reservePct: cfg.reservePct,
+      minSocPct: settings.battery.minSocPct,
+      maxDischargeW: maxW,
+    };
     const now = this.deps.now();
+    // Grid charging has stricter gates than discharge limits: a stuck forced charge
+    // would import power, so the inverter-side revert must be proven.
+    const gcs = cfg.gridCharge;
+    let gate: string | null = null;
+    if (gcs.enabled) {
+      if (i.batteryW == null) gate = 'grid charging: battery power unknown';
+      else if (cfg.mode === 'active' && this.revert?.status !== 'passed')
+        gate = 'grid charging needs a passed revert self-test';
+      else if (this.storage && this.storage.chaGriSet !== 1)
+        gate =
+          'grid charging not allowed by the inverter (enable battery charging from the grid in the Gen24 UI)';
+    }
+    const gr = applyGridCharge(
+      decide(inputs, coreCfg),
+      inputs,
+      coreCfg,
+      { ...gcs, enabled: gcs.enabled && !gate, inWindow: inLocalWindow(now, gcs.from, gcs.to) },
+      this.gridCharge,
+      now,
+    );
+    const decision = gr.decision;
+    if (JSON.stringify(gr.state) !== JSON.stringify(this.gridCharge)) {
+      if (gr.state.active !== this.gridCharge.active) {
+        await addEvent(
+          this.deps.db,
+          'grid_charge',
+          gr.state.active ? 'Grid charging started' : 'Grid charging stopped',
+          { state: gr.state, mode: cfg.mode },
+        ).catch(() => {});
+      }
+      this.gridCharge = gr.state;
+      await kvSet(this.deps.db, GRID_CHARGE_KV, gr.state).catch(() => {});
+    }
+    this.gridChargeReason = gcs.enabled ? (gate ?? gr.reason) : null;
     if (decision.mode === 'empty' && this.decision?.mode === 'shave') {
       this.deps.alert?.({
         kind: 'reserveDepleted',
@@ -356,12 +406,20 @@ export class Controller {
     const keepAliveDue =
       !!this.written &&
       this.written.storCtlMod !== 0 &&
-      sinceWrite >= Math.max(10, revertS / 3) * 1000;
+      sinceWrite >= Math.max(10, (this.written.rvrtTmsS || revertS) / 3) * 1000;
     const differs = !sameCommand(this.written, cmd);
     if (!differs && !keepAliveDue) return false;
-    // Releasing the battery (inverter's own mode) is always safe and immediate; other
-    // changes respect the minimum interval (keep-alive rewrites the current command).
-    if (differs && cmd.storCtlMod !== 0 && this.written && sinceWrite < minUpdateS * 1000) {
+    // Releasing the battery (inverter's own mode) and ending a forced charge are always
+    // safe and immediate; other changes respect the minimum interval (keep-alive
+    // rewrites the current command).
+    const endsCharge = isForcedCharge(this.written) && !isForcedCharge(cmd);
+    if (
+      differs &&
+      cmd.storCtlMod !== 0 &&
+      !endsCharge &&
+      this.written &&
+      sinceWrite < minUpdateS * 1000
+    ) {
       if (!keepAliveDue) return false;
       return this.write(this.written, now, 'keep-alive');
     }
@@ -373,7 +431,7 @@ export class Controller {
     const t = this.deps.transport;
     if (!t || !this.model || !this.storage) return false;
     try {
-      await writeStorage(t, cmd, this.storage);
+      await writeStorage(t, cmd, this.storage, { allowForcedCharge: isForcedCharge(cmd) });
       const back = await readStorage(t, this.model);
       this.storage = back;
       const ok =
@@ -516,6 +574,7 @@ export class Controller {
       },
       decision: this.decision,
       command: this.desired,
+      gridCharge: { ...this.gridCharge, reason: this.gridChargeReason },
       written: this.written,
       applying: this.applying,
       fault: this.fault,
