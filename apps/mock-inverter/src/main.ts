@@ -18,6 +18,7 @@ const house = new House(start, {
   batteryWh: Number(env('MOCK_BATTERY_KWH', '10.24')) * 1000,
   batteryMaxW: Number(env('MOCK_BATTERY_MAX_KW', '6')) * 1000,
   revertSupported: env('MOCK_REVERT_SUPPORTED', 'true') === 'true',
+  gridChargeAllowed: env('MOCK_GRID_CHARGE_ALLOWED', 'true') === 'true',
 });
 
 // Keep the simulation advancing even without requests, so catch-up stays cheap.
@@ -36,7 +37,7 @@ createModbusServer(house, clock, { port: modbusPort, controlEnabled: modbusContr
   'initialized',
   () => {
     console.log(
-      `mock Modbus TCP on :${modbusPort} (control ${modbusControl ? 'enabled' : 'disabled'}, revert ${house.config.revertSupported ? 'supported' : 'NOT supported'})`,
+      `mock Modbus TCP on :${modbusPort} (control ${modbusControl ? 'enabled' : 'disabled'}, revert ${house.config.revertSupported ? 'supported' : 'NOT supported'}, grid charging ${house.config.gridChargeAllowed ? 'allowed' : 'NOT allowed'})`,
     );
   },
 );

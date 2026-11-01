@@ -17,6 +17,11 @@ export interface HouseConfig {
   efficiency: number;
   /** Whether the storage revert timer (InOutWRte_RvrtTms) is honoured. */
   revertSupported: boolean;
+  /**
+   * "Battery charging from the grid" in the Gen24 UI (SunSpec ChaGriSet = GRID). Without it,
+   * a forced charge only uses the PV surplus.
+   */
+  gridChargeAllowed: boolean;
 }
 
 export const DEFAULT_HOUSE: HouseConfig = {
@@ -28,6 +33,7 @@ export const DEFAULT_HOUSE: HouseConfig = {
   minSocPct: 5,
   efficiency: 0.96,
   revertSupported: true,
+  gridChargeAllowed: true,
 };
 
 /** SunSpec model 124 control fields (values already scaled to real units). */
@@ -199,7 +205,10 @@ export class House {
     const maxCha = Math.min(chargeLimit, roomWh / hours, maxW);
 
     if (forced > 0) return Math.min(forced, availWh / hours, maxW);
-    if (forced < 0) return -Math.min(-forced, roomWh / hours, maxW);
+    if (forced < 0) {
+      const sourceW = c.gridChargeAllowed ? maxW : Math.max(0, -netW);
+      return -Math.min(-forced, roomWh / hours, maxW, sourceW);
+    }
     // Self-consumption: cover the deficit / absorb the surplus within limits.
     return netW > 0 ? Math.min(netW, maxDis) : -Math.min(-netW, maxCha);
   }
