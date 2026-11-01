@@ -142,7 +142,10 @@ export async function readStorage(t: ModbusTransport, model: ModelInfo): Promise
 export interface StorageCommand {
   /** bit0 charge limit, bit1 discharge limit; 0 = inverter's own mode */
   storCtlMod: number;
-  /** discharge limit in % of WChaMax (≥ 0 only: never forced charging) */
+  /**
+   * discharge limit in % of WChaMax; negative = forced charging, only accepted with
+   * `allowForcedCharge` (grid charging of the reserve)
+   */
   outWRtePct: number;
   /** charge limit in % of WChaMax (≥ 0 only: never forced discharging) */
   inWRtePct: number;
@@ -160,22 +163,27 @@ export const STORAGE_DEFAULTS: StorageCommand = {
 
 /**
  * Register writes for a storage command. Rates are written first, then StorCtl_Mod, so
- * a limit never becomes active with a stale rate. Negative rates (forced charge or
- * discharge) are rejected by design.
+ * a limit never becomes active with a stale rate. Forced discharging (negative InWRte)
+ * is always rejected; forced charging (negative OutWRte) only with `allowForcedCharge`.
  */
+export interface EncodeOptions {
+  allowForcedCharge?: boolean;
+}
+
 export function encodeStorageCommand(
   cmd: StorageCommand,
   state: Pick<StorageState, 'dataAddress' | 'inOutWRteSf'>,
+  opts: EncodeOptions = {},
 ) {
-  for (const [k, v] of [
-    ['outWRtePct', cmd.outWRtePct],
-    ['inWRtePct', cmd.inWRtePct],
-  ] as const) {
-    if (!(v >= 0 && v <= 100))
-      throw new Error(
-        `${k} must be within 0..100 % (got ${v}); forced charging/discharging is not allowed`,
-      );
-  }
+  const outMin = opts.allowForcedCharge ? -100 : 0;
+  if (!(cmd.outWRtePct >= outMin && cmd.outWRtePct <= 100))
+    throw new Error(
+      `outWRtePct must be within ${outMin}..100 % (got ${cmd.outWRtePct}); forced charging is not allowed`,
+    );
+  if (!(cmd.inWRtePct >= 0 && cmd.inWRtePct <= 100))
+    throw new Error(
+      `inWRtePct must be within 0..100 % (got ${cmd.inWRtePct}); forced discharging is not allowed`,
+    );
   if (!Number.isInteger(cmd.storCtlMod) || cmd.storCtlMod < 0 || cmd.storCtlMod > 3)
     throw new Error('invalid StorCtl_Mod');
   if (!(cmd.rvrtTmsS >= 0 && cmd.rvrtTmsS <= 0xfffe)) throw new Error('invalid revert timeout');
@@ -194,6 +202,7 @@ export async function writeStorage(
   t: ModbusTransport,
   cmd: StorageCommand,
   state: StorageState,
+  opts: EncodeOptions = {},
 ): Promise<void> {
-  for (const w of encodeStorageCommand(cmd, state)) await t.write(w.address, w.values);
+  for (const w of encodeStorageCommand(cmd, state, opts)) await t.write(w.address, w.values);
 }

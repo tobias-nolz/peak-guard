@@ -4,8 +4,11 @@ Status: **core done** (commit after the plan): settings `control.gridCharge` (sc
 DB deep-merge), `'charge'` decision mode (core, live snapshot, web DTO, locales), the shave
 demand fix in `decide()`, and the pure `applyGridCharge()` / `inLocalWindow()` in
 `packages/core/src/control.ts` with tests in `packages/core/src/gridcharge.test.ts`.
-**Still to do:** Fronius encode option, collector wiring (mapping, controller, kv state,
-gates), DB column + migration, simulator `ChaGriSet`, API gate, web settings UI and chart, docs.
+Also done: Fronius `encodeStorageCommand`/`writeStorage` option `allowForcedCharge`;
+`commandFor` maps `charge` → negative OutWRte with `rvrtTmsS ≤ 60` (`CHARGE_REVERT_MAX_S`),
+`significantChange` treats a sign change as significant, `isForcedCharge()` helper (all tested).
+**Still to do:** controller wiring (kv state, gates, immediate stop, pass
+`allowForcedCharge: isForcedCharge(cmd)` to `writeStorage` in `write()`), DB column + migration, simulator `ChaGriSet`, API gate, web settings UI and chart, docs.
 Note: the settings use `hysteresisPct`, `from`/`to` as written below; the collector must
 compute `inWindow` with `inLocalWindow(now, from, to)` and pass it to `applyGridCharge`. This file is the hand-over for continuing locally.
 Branch: `claude/modest-franklin-h7raum`. Delete this file once the feature is merged.

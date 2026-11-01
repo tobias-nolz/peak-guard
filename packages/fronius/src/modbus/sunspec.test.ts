@@ -80,4 +80,17 @@ describe('encodeStorageCommand', () => {
       encodeStorageCommand({ storCtlMod: 7, outWRtePct: 0, inWRtePct: 100, rvrtTmsS: 60 }, state),
     ).toThrow(/StorCtl_Mod/);
   });
+
+  it('encodes forced charging only with allowForcedCharge, never forced discharging', () => {
+    const charge = { storCtlMod: 2, outWRtePct: -50, inWRtePct: 100, rvrtTmsS: 60 };
+    const w = encodeStorageCommand(charge, state, { allowForcedCharge: true });
+    expect(w[0]!.values[0]).toBe(0x10000 - 5000); // −50 % with SF −2, as uint16
+    expect(() =>
+      encodeStorageCommand(
+        { storCtlMod: 1, outWRtePct: 100, inWRtePct: -10, rvrtTmsS: 60 },
+        state,
+        { allowForcedCharge: true },
+      ),
+    ).toThrow(/forced discharging/);
+  });
 });
