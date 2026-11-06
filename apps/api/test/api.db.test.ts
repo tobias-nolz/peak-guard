@@ -165,6 +165,41 @@ describe.skipIf(!adminUrl)('API ↔ TimescaleDB', () => {
     expect(body.points[0]![1]).toBe(12_400);
   });
 
+  it('sums battery charge and discharge per day and month', async () => {
+    // 2 Jan 12:00 local: 10 min charging at 3 kW, then 10 min discharging at 1.5 kW.
+    const t0 = JAN + 86_400_000 + 12 * 3_600_000;
+    await insertSamples(
+      db,
+      Array.from({ length: 120 }, (_, i) => ({
+        ts: t0 + i * 10_000,
+        gridW: 0,
+        loadW: 1000,
+        pvW: 0,
+        batteryW: i < 60 ? -3000 : 1500,
+        socPct: 50,
+        importWh: null,
+        exportWh: null,
+      })),
+    );
+    await refreshMinuteAggregate(sql);
+
+    type Usage = { chargeKwh: number; dischargeKwh: number; cycles: number | null };
+    type Body = { capacityKwh: number; total: Usage; periods: (Usage & { period: string })[] };
+    const day = (
+      await app.inject(`/api/battery?from=${JAN}&to=${JAN + 7 * 86_400_000}`)
+    ).json<Body>();
+    const jan2 = day.periods.find((p) => p.period === '2027-01-02');
+    expect(jan2?.chargeKwh).toBeCloseTo(0.5);
+    expect(jan2?.dischargeKwh).toBeCloseTo(0.25);
+    expect(jan2?.cycles).toBeCloseTo(0.375 / day.capacityKwh);
+    expect(day.total.chargeKwh).toBeCloseTo(0.5);
+
+    const year = Date.parse('2027-12-31T23:00:00Z');
+    const month = (await app.inject(`/api/battery?from=${JAN}&to=${year}&by=month`)).json<Body>();
+    expect(month.periods.map((p) => p.period)).toEqual(['2027-01']);
+    expect(month.periods[0]?.dischargeKwh).toBeCloseTo(0.25);
+  });
+
   it('validates and stores settings with an audit trail', async () => {
     const bad = await app.inject({
       method: 'PUT',
