@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { INTERVAL_MS, activeFeeWindow } from '@peak-guard/core';
+import { BatteryRangeStats } from '@/components/battery-usage';
 import { EChart, chartColors } from '@/components/echart';
 import { ExportLinks } from '@/components/month-picker';
 import { Button } from '@/components/ui/button';
@@ -380,6 +381,12 @@ export function Timeline({
       </CardHeader>
       <CardContent className="space-y-3">
         <EChart option={option} className="h-96" onEvents={onEvents} />
+        <BatteryRangeStats
+          from={from}
+          to={to}
+          label={t('batteryUsage.title')}
+          testId="range-battery"
+        />
         <ExportLinks
           links={[
             {

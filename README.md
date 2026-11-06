@@ -8,12 +8,13 @@ From 2027, Austrian grid operators (here: Netz NÖ) bill a **capacity charge (Le
 
 ## Features
 
-- **Live:** the current quarter-hour with energy so far, running average and projection against the limit and the month's peak; power-flow diagram (grid, PV, battery, house); capacity charge and the extra cost if the projection becomes the new peak.
+- **Live:** the current quarter-hour with energy so far, running average and projection against the limit and the month's peak; power-flow diagram (grid, PV, battery, house); capacity charge and the extra cost if the projection becomes the new peak; battery energy charged and discharged today with equivalent full cycles.
 - **History:**
   - Time series (today / 7 days / month / custom) with 15-minute steps.
   - Monthly view with daily peaks and the top-10 quarter-hours with _likely causes_.
   - Weekday × hour heatmap, histogram and duration curve.
   - Year overview with a month comparison.
+  - Battery usage: energy charged and discharged plus equivalent full cycles for the shown time range, per day (month view) and per month (year view).
   - CSV/JSON exports.
 - **Reconciliation:** import the Netz NÖ smart-meter CSV, compare it with your own measurement and apply a calibration factor. The month view then shows the billed peak.
 - **What-if simulation:** replays your history against a battery with a reserve for peak shaving, sweeps threshold × reserve × capacity and recommends a combination with the expected saving. Optionally with grid charging of the reserve, compared with the same scenario without it.

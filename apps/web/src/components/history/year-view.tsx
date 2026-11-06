@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { BatteryUsageCard } from '@/components/battery-usage';
 import { EChart, chartColors } from '@/components/echart';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { monthQuery, settingsQuery, yearQuery } from '@/lib/api';
 import { fmtEur, fmtKw, fmtMonth } from '@/lib/format';
-import { monthOf, useNow } from '@/lib/time';
+import { monthBounds, monthOf, useNow } from '@/lib/time';
 import { useTheme } from '@/lib/theme';
 
 const COMPARE_COLORS = ['#3b82f6', '#f59e0b', '#22c55e'];
@@ -25,6 +26,16 @@ export function YearView({ year, onYear }: { year: number; onYear: (y: number) =
   const months = useMemo(() => data?.months ?? [], [data]);
   const currentYear = Number(monthOf(useNow()).slice(0, 4));
   const compared = useQueries({ queries: compare.map((m) => monthQuery(m)) });
+  const yearFrom = monthBounds(`${year}-01`).from;
+  const yearTo = monthBounds(`${year}-12`).to;
+  const monthCategories = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, i) => {
+        const key = `${year}-${String(i + 1).padStart(2, '0')}`;
+        return { key, label: fmtMonth(key, 'short') };
+      }),
+    [year],
+  );
 
   const yearOption = useMemo(() => {
     const c = chartColors(dark);
@@ -157,6 +168,7 @@ export function YearView({ year, onYear }: { year: number; onYear: (y: number) =
           <EChart option={yearOption} className="h-72" />
         </CardContent>
       </Card>
+      <BatteryUsageCard from={yearFrom} to={yearTo} by="month" categories={monthCategories} />
       <Card>
         <CardHeader>
           <CardTitle>{t('history.compare')}</CardTitle>

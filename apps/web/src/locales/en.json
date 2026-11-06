@@ -129,6 +129,14 @@
     "count": "Count",
     "official": "Billed (grid operator)"
   },
+  "batteryUsage": {
+    "title": "Battery",
+    "charged": "Charged",
+    "discharged": "Discharged",
+    "cycles": "Cycles",
+    "cyclesHint": "Cycles = equivalent full cycles: (charged + discharged) ÷ 2 ÷ usable capacity ({{kwh}} kWh).",
+    "noCapacity": "Set the battery's usable capacity under Settings to count cycles."
+  },
   "settings": {
     "title": "Settings",
     "save": "Save",

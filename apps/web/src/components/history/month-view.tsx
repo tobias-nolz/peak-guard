@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { BatteryUsageCard } from '@/components/battery-usage';
 import { EChart, chartColors } from '@/components/echart';
 import { ExportLinks, MonthPicker } from '@/components/month-picker';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { exportUrl, monthQuery, settingsQuery, type TopPeakDto } from '@/lib/api';
 import { fmtDateTime, fmtEur, fmtKw, fmtNumber } from '@/lib/format';
 import { useTheme } from '@/lib/theme';
-import { monthBounds, monthOf, useNow } from '@/lib/time';
+import { addDays, lastDayOfMonth, monthBounds, monthOf, useNow } from '@/lib/time';
 
 export function MonthView({ month, onMonth }: { month: string; onMonth: (m: string) => void }) {
   const { t } = useTranslation();
@@ -21,6 +22,13 @@ export function MonthView({ month, onMonth }: { month: string; onMonth: (m: stri
     settings.data?.tariffs[0]?.minBilledKw ?? 0,
   );
   const { from, to } = monthBounds(month);
+  const dayCategories = useMemo(() => {
+    const last = lastDayOfMonth(month);
+    const out: { key: string; label: string }[] = [];
+    for (let d = `${month}-01`; d <= last; d = addDays(d, 1))
+      out.push({ key: d, label: d.slice(8) });
+    return out;
+  }, [month]);
 
   const dailyOption = useMemo(() => {
     const c = chartColors(dark);
@@ -126,6 +134,7 @@ export function MonthView({ month, onMonth }: { month: string; onMonth: (m: stri
               <EChart option={dailyOption} className="h-56" />
             </CardContent>
           </Card>
+          <BatteryUsageCard from={from} to={to} by="day" categories={dayCategories} />
           <Card>
             <CardHeader>
               <CardTitle>{t('history.topPeaks')}</CardTitle>
