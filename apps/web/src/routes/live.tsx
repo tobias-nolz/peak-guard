@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { INTERVAL_MS, startOfLocalDay } from '@peak-guard/core';
 import type { LiveSnapshot } from '@peak-guard/shared';
+import { BatteryRangeStats } from '@/components/battery-usage';
 import { EChart, chartColors } from '@/components/echart';
 import { IntervalGauge } from '@/components/interval-gauge';
 import { PowerFlow } from '@/components/power-flow';
@@ -171,13 +172,13 @@ function TodayCard({ snap, className }: { snap: LiveSnapshot; className?: string
   });
 
   const current = snap.interval.start;
+  const dayEnd = startOfLocalDay(dayStart + 26 * 3_600_000, TIME_ZONE);
   const option = useMemo(() => {
     const c = chartColors(dark);
     const limit = snap.effectiveLimitKw;
     const color = (kw: number) => (kw > limit ? c.over : kw > limit * 0.9 ? c.warning : c.safe);
     // One category per local quarter-hour (92/96/100 on DST days) keeps bar widths even.
     const slots: number[] = [];
-    const dayEnd = startOfLocalDay(dayStart + 26 * 3_600_000, TIME_ZONE);
     for (let ts = dayStart; ts < dayEnd; ts += INTERVAL_MS) slots.push(ts);
     const byStart = new Map((data ?? []).map((i) => [i.start, i]));
     const bars = slots.map((ts) => {
@@ -254,13 +255,20 @@ function TodayCard({ snap, className }: { snap: LiveSnapshot; className?: string
     snap.monthPeak,
     dark,
     dayStart,
+    dayEnd,
     t,
   ]);
 
   return (
     <Card className={className} data-testid="today-card">
-      <CardHeader>
+      <CardHeader className="flex-row flex-wrap items-start justify-between gap-3">
         <CardTitle>{t('live.today')}</CardTitle>
+        <BatteryRangeStats
+          from={dayStart}
+          to={dayEnd}
+          refetchInterval={60_000}
+          testId="today-battery"
+        />
       </CardHeader>
       <CardContent>
         <EChart option={option} className="h-56" live />

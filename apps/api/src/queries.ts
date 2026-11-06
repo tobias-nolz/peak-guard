@@ -89,3 +89,41 @@ export async function flowsForIntervals(
   }
   return out;
 }
+
+export interface BatteryEnergyRow {
+  /** local "YYYY-MM-DD" (by day) or "YYYY-MM" (by month) */
+  period: string;
+  chargeWh: number;
+  dischargeWh: number;
+  /** minutes with a battery reading */
+  minutes: number;
+}
+
+/**
+ * Battery energy charged and discharged in [from, to), per local day or month, integrated
+ * from the 1-minute aggregate (each minute's average power for one minute).
+ */
+export async function batteryEnergy(
+  sql: Sql,
+  from: number,
+  to: number,
+  timeZone: string,
+  by: 'day' | 'month',
+): Promise<BatteryEnergyRow[]> {
+  const fmt = by === 'day' ? 'YYYY-MM-DD' : 'YYYY-MM';
+  const rows = await sql<
+    { period: string; charge_wh: unknown; discharge_wh: unknown; minutes: unknown }[]
+  >`
+    SELECT to_char(bucket AT TIME ZONE ${timeZone}, ${fmt}) AS period,
+           coalesce(sum(greatest(-battery_w_avg, 0)), 0) / 60 AS charge_wh,
+           coalesce(sum(greatest(battery_w_avg, 0)), 0) / 60 AS discharge_wh,
+           count(battery_w_avg) AS minutes
+    FROM samples_1m WHERE bucket >= ${iso(from)} AND bucket < ${iso(to)}
+    GROUP BY 1 ORDER BY 1`;
+  return rows.map((r) => ({
+    period: r.period,
+    chargeWh: Number(r.charge_wh),
+    dischargeWh: Number(r.discharge_wh),
+    minutes: Number(r.minutes),
+  }));
+}

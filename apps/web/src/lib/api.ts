@@ -111,6 +111,21 @@ export interface YearSummaryDto {
   totalCostEur: number;
 }
 
+export interface BatteryUsageDto {
+  chargeKwh: number;
+  dischargeKwh: number;
+  /** equivalent full cycles; null when the battery capacity is not set */
+  cycles: number | null;
+  minutes: number;
+}
+
+export interface BatterySummaryDto {
+  capacityKwh: number | null;
+  total: BatteryUsageDto;
+  /** local "YYYY-MM-DD" or "YYYY-MM" periods that have data */
+  periods: (BatteryUsageDto & { period: string })[];
+}
+
 export interface AnalysisDto {
   count: number;
   maxKw: number | null;
@@ -324,6 +339,8 @@ export const api = {
     request<IntervalDto[]>(`/api/intervals?from=${from}&to=${to}`),
   month: (month: string) => request<MonthSummaryDto>(`/api/months/${month}`),
   series: (from: number, to: number) => request<SeriesDto>(`/api/series?from=${from}&to=${to}`),
+  battery: (from: number, to: number, by: 'day' | 'month') =>
+    request<BatterySummaryDto>(`/api/battery?from=${from}&to=${to}&by=${by}`),
   health: () => request<HealthDto>('/api/health'),
   me: () => request<{ mode: 'none' | 'password' | 'proxy'; user: string | null }>('/api/auth/me'),
   login: (username: string, password: string) =>
@@ -398,6 +415,11 @@ export const monthQuery = (month: string) =>
   queryOptions({ queryKey: ['month', month], queryFn: () => api.month(month) });
 export const seriesQuery = (from: number, to: number) =>
   queryOptions({ queryKey: ['series', from, to], queryFn: () => api.series(from, to) });
+export const batteryQuery = (from: number, to: number, by: 'day' | 'month' = 'day') =>
+  queryOptions({
+    queryKey: ['battery', from, to, by],
+    queryFn: () => api.battery(from, to, by),
+  });
 export const yearQuery = (year: number) =>
   queryOptions({ queryKey: ['year', year], queryFn: () => api.year(year) });
 export const analysisQuery = (from: number, to: number, agg: 'max' | 'avg') =>

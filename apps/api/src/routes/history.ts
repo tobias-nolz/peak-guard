@@ -9,8 +9,9 @@ import {
 } from '@peak-guard/core';
 import { billingIntervalsBetween, getSettings, intervalsBetween } from '@peak-guard/db';
 import { analyzeRange } from '../analysis.js';
+import { summarizeBattery } from '../battery.js';
 import { currentMonth, monthRange, summarizeMonth, summarizeYear } from '../month-summary.js';
-import { autoResolution, flowsForIntervals, series } from '../queries.js';
+import { autoResolution, batteryEnergy, flowsForIntervals, series } from '../queries.js';
 import {
   errorSchema,
   intervalSchema,
@@ -177,6 +178,26 @@ export function historyRoutes(app: App, { db, sql, env }: RouteDeps) {
       const { from, to, agg, bin } = req.query;
       const [rows, settings] = await Promise.all([intervalsBetween(db, from, to), getSettings(db)]);
       return analyzeRange(rows, settings, tz, agg, bin);
+    },
+  );
+
+  app.get(
+    '/api/battery',
+    {
+      schema: {
+        tags: ['history'],
+        description:
+          'Battery energy charged and discharged in [from, to), in total and per local day or month, with equivalent full cycles ((charged + discharged) / 2 / usable capacity; null if the capacity is not set).',
+        querystring: rangeQuery.and(z.object({ by: z.enum(['day', 'month']).default('day') })),
+      },
+    },
+    async (req) => {
+      const { from, to, by } = req.query;
+      const [rows, settings] = await Promise.all([
+        batteryEnergy(sql, from, to, tz, by),
+        getSettings(db),
+      ]);
+      return summarizeBattery(rows, settings.battery.capacityKwh);
     },
   );
 }

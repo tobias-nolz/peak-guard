@@ -129,6 +129,14 @@
     "count": "Anzahl",
     "official": "Abgerechnet (Netzbetreiber)"
   },
+  "batteryUsage": {
+    "title": "Batterie",
+    "charged": "Geladen",
+    "discharged": "Entladen",
+    "cycles": "Zyklen",
+    "cyclesHint": "Zyklen = Vollzyklen-Äquivalent: (geladen + entladen) ÷ 2 ÷ nutzbare Kapazität ({{kwh}} kWh).",
+    "noCapacity": "Für die Zyklen die nutzbare Batteriekapazität unter Einstellungen eintragen."
+  },
   "settings": {
     "title": "Einstellungen",
     "save": "Speichern",
